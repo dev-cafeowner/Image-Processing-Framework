@@ -1,0 +1,10 @@
+
+
+OPTION psf_version = 2.1;
+
+BEGIN DRIVER qr_runtime_exact
+	OPTION supported_peripherals = (qr_runtime_exact);
+	OPTION copyfiles = all;
+	OPTION VERSION = 1.0;
+	OPTION NAME = qr_runtime_exact;
+END DRIVER
