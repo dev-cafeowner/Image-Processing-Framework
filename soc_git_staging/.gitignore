@@ -1,0 +1,44 @@
+# Vivado generated files
+.Xil/
+*.cache/
+*.runs/
+*.gen/
+*.sim/
+*.hw/
+*.ip_user_files/
+*.tmp/
+*.jou
+*.log
+*.str
+*.wdb
+*.vcd
+*.dcp
+*.bit
+*.ltx
+
+# Vitis generated files
+**/build/
+**/_ide/
+**/__pycache__/
+**/.metadata/
+**/.settings/
+**/.project
+**/.cproject
+**/compile_commands.json
+*.elf
+*.o
+*.obj
+*.d
+
+# Captured/generated image data
+**/captures/
+*.pgm
+vdma_gray_*.png
+exact_gray_*.png
+
+# OS/editor
+.DS_Store
+*~
+*.swp
+*.swo
+.vscode/
