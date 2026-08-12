@@ -4,69 +4,111 @@
 
 - Vitis 2024.2
 - Standalone Bare-Metal Application
-- Target: Zybo Z7-20 / Zynq-7020
+- Target Board: Zybo Z7-20
+- Device: Zynq-7020
 
-## Verified Baseline
+## Verified Software Baseline
 
-`Qr_barcode_working_ver0_app/` contains the application source used for the
-verified board-level runtime baseline.
+`Qr_barcode_working_ver0_app/` contains the Vitis application source used
+for the board-level verified runtime.
 
-The corresponding verified hardware handoff is:
+The corresponding hardware handoff is:
 
 `hardware/baseline/qr_test_working_ver0.xsa`
 
-The original development workspace is not stored in this repository.
-Generated platform, BSP, build, and IDE files are intentionally excluded.
+The original Vitis workspace, generated platform, BSP, build, and IDE files
+are not included in this repository.
 
-## Application
+Only the application source and required configuration files are preserved.
 
-Application sources are preserved under:
+## Verified Runtime Path
 
-`Qr_barcode_working_ver0_app/src/`
+The board-level runtime was verified with the following processing path:
 
-The software includes:
+OV7670 Camera
+→ PL Vision Front-End
+→ Gray8 Image DMA
+→ DDR / PS
+→ PS Full-Frame QR Decode
+→ UART / HDMI Output
 
-- OV7670 camera configuration
+The software configures the camera and PL runtime, receives the Gray8 image
+through AXI DMA, performs QR decoding on the PS, and outputs the recognition
+result through UART and HDMI.
+
+QR recognition was verified on the Zybo Z7-20 board using actual camera input.
+
+## PL QR Candidate Pipeline
+
+The PL QR candidate detection pipeline was implemented and verified separately.
+
+Run-Length Scan
+→ 1:1:3:1:1 Detection
+→ Vertical Cross-Check
+→ HIT Event Stream
+→ Sparse CCL
+→ Object Properties
+→ Candidate Result
+
+In the current board demonstration runtime, the PL candidate records are
+not directly used by the PS QR decoder.
+
+The QRP1 result stream is received and drained, while final QR recognition
+is performed using the full-frame Gray8 image on the PS.
+
+Therefore, the repository distinguishes between:
+
+- PL candidate pipeline implementation and verification
+- Board-level QR recognition using the PS full-frame decoder
+
+## Application Source
+
+The verified application is stored under:
+
+`software/vitis/Qr_barcode_working_ver0_app/`
+
+Application entry point:
+
+`src/helloworld.c`
+
+Main runtime:
+
+`src/stage6_qr_runtime.c`
+
+The runtime includes:
+
+- OV7670 SCCB configuration
 - Vision Front-End control
-- AXI VDMA control
-- Result/Image DMA handling
 - Runtime CSR control
-- QRP1 result handling
-- Gray8 image processing
+- AXI DMA handling
+- Gray8 frame transfer
 - QR decoding
 - HDMI framebuffer output
-- UART debug/output
+- UART result output
 
-The QR decoder uses the `quirc` library included in the application sources.
+The QR decoder uses the included `quirc` library.
 
 ## Reusing the Software
 
 1. Open Vitis 2024.2.
-2. Create a Platform Component using:
+2. Create a Platform Component using `hardware/baseline/qr_test_working_ver0.xsa`.
+3. Create a Standalone domain for the Cortex-A9 processor.
+4. Create an Application Component.
+5. Add the application sources from `software/vitis/Qr_barcode_working_ver0_app/src/`.
+6. Build the application.
+7. Program the FPGA using the corresponding hardware design.
+8. Run the application on the Zynq PS.
 
-   `hardware/baseline/qr_test_working_ver0.xsa`
+## Repository Policy
 
-3. Create a Standalone domain for the Zynq-7000 PS.
-4. Create or import an Application Component.
-5. Use the sources under:
+This directory preserves the actual tested software baseline.
 
-   `software/vitis/Qr_barcode_working_ver0_app/src/`
+The verified application source is intentionally preserved without
+refactoring so that the repository remains traceable to the board-level
+demonstration.
 
-6. Preserve the supplied `UserConfig.cmake`, `CMakeLists.txt`, `app.yaml`,
-   linker script, and application configuration files as required.
-7. Build the application.
-8. Program the FPGA using the matching hardware design.
-9. Run the application on the Zynq PS.
-
-## Baseline Policy
-
-This directory preserves the tested software baseline without refactoring.
-
-Generated Vitis workspace files are not treated as source files and are not
-stored in Git.
-
-Future cleanup or modularization should be performed in separate commits so
-that the verified baseline remains traceable.
+Generated Vitis workspace files, BSP files, IDE metadata, and build
+artifacts are not treated as project source and are excluded from Git.
 
 ## Host Utilities
 
