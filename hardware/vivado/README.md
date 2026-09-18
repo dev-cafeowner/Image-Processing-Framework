@@ -1,89 +1,46 @@
-# Vivado source and historical project snapshots
+# Vivado source configuration
 
-## Current QPP1 reference (2026-09-18)
+Use Vivado 2024.2 and part `xc7z020clg400-1`. Create a new RTL project named `system` outside the tracked source directories. Do not import historical generated projects.
 
-The current main application uses `qr_frame_pingpong.bit/.xsa` with the
-`fallback_fast` ELF. See [current version](../../docs/CURRENT_VERSION.md).
-It uses two binary BRAM banks, matched Gray8 ownership, candidate-guided PS
-Geometry/ECC and autonomous PL preview. Fixed-scene QR throughput is about
-30/s; the 15/s statements below describe earlier milestones.
+## IP repositories
 
-Use the `qr-v0.11.0` release package for deployment, or
-`tools/run_current.tcl` when the local generated artifacts already exist.
-The build scripts still depend on external IP/BSP and earlier generated BD
-files; these source snapshots are not a turnkey clean-clone rebuild flow.
+Add these directories in Project Settings → IP → Repository:
 
-## Historical notes
+- `hardware/ip_repo/custom`
+- `hardware/ip_repo/runtime`
+- `<digilent-vivado-library>/ip`
+- `<digilent-vivado-library>/if`
 
-## PL-guided PS Geometry/ROI (2026-09-17)
+The external [Digilent vivado-library](https://github.com/Digilent/vivado-library/tree/f4613fff005b098065fd5d619a2b88e55720a423) dependency used locally is commit `f4613fff005b098065fd5d619a2b88e55720a423`. The design requires `axi_dynclk:1.2` and `rgb2dvi:1.4`. AMD catalog IP is supplied by Vivado. Keep IP versions fixed unless deliberately migrating and revalidating.
 
-Follow-up measurement: `Docs/QR_PIPELINE_BOTTLENECK_20260917.md` separates the
-remaining 15/s limit into capture (~31.34ms), post-frame PL processing (~5.78ms)
-and DMA/ACK. The next 33.32ms camera SOF is already missed before results are
-ready. Diagnostic PS builds did not change this PL or the selected normal ELF.
+## RTL and Block Design
 
-`tools/run_candidate_geometry.tcl` runs the validated candidate-guided PS ELF
-with the same corrected PL bitstream (no new PL changes). See
-`Docs/PL_GUIDED_GEOMETRY_ROI_20260917.md`: current-scene QR call time fell from
-59.1ms to 12.0ms, while actual QR throughput remains 15/s and camera input 30fps.
-The previous full-frame ELF and the always-refine intermediate ELF are retained.
+Before opening `system.bd`, add these module-reference source files:
 
-## Latest candidate-path correction (2026-09-17)
+- `hardware/rtl/bridge/qr_rgb565_gray8_axis_tap.v`
+- `hardware/rtl/bridge/qr_binary_bram_address_adapter.v`
+- `hardware/rtl/bridge/frame_buffer_address.v`
+- `hardware/rtl/bridge/frame_buffer_controller.v`
+- `hardware/rtl/video/video_preview_overlay.v`
+- `hardware/rtl/camera/ov7670_camera_clock.v`
+- `hardware/rtl/camera/ov7670_pclk_rx.v`
+- `hardware/rtl/camera/ov7670_clean_sync_axis.v`
+- `hardware/rtl/camera/ov7670_pclk_clean_clock.v`
 
-The separate `tools/build_candidate_address_fix.tcl` build starts from the
-preserved Stage4 30fps BD and fixes both binary BRAM word-to-byte address
-connections. See `Docs/PL_CANDIDATE_ADDRESS_FIX_20260917.md` for simulation,
-on-board tests, selected firmware and rollback. The historical designs below
-are retained as measured baselines; they do not include this address fix.
-Use the new build/runner for candidate-path work, not a historical baseline.
+Enable the XPM CDC, FIFO and MEMORY libraries in the project. Other design RTL is resolved through packaged user IP. Do not add duplicate copies from both `hardware/rtl` and the IP packages indiscriminately.
 
-The current PL+PS performance work is documented in
-`Docs/HARDWARE_SOFTWARE_PERFORMANCE_20260917.md`. Its reproducible build entry
-point is `tools/build_hardware_perf.tcl`; it creates a separate `Vivado/qr_perf`
-project. The camera-path repair artifacts described below remain the rollback
-baseline and are not overwritten by that build.
+Add/copy `hardware/vivado/system.bd` into the project, refresh module references if requested, validate the design, generate output products, and create a Vivado-managed HDL wrapper. Select `system_wrapper` as top.
 
-## Autonomous preview / 30fps stage 2
+Add `hardware/constraints/board.xdc` for synthesis and implementation with processing order **LATE**. DDR/FIXED_IO are configured in the Processing System IP. Check camera pin wiring against the XDC before connecting hardware.
 
-`../../tools/build_video30_stage2.tcl` creates the separate
-`Vivado/qr_video30_stage2` project from the preserved
-`baselines/qr_perf_stage1.bd`, adds the common PL grayscale/bitmap HUD, and
-keeps the QR snapshot/Feature/runtime path intact. Its PS application is built
-with `-PlPreview -Build Vitis_video30_stage2/build`; do not use the stage2 ELF
-with the old bitstream. The matching runner is `tools/run_video30_stage2.tcl`.
-See `Docs/VIDEO_30FPS_STAGE2_20260917.md` for measurements and limitations.
-Camera input remains about 9.77fps at this stage; repeated scanout frames are
-not counted as new camera frames. The original canonical BD is not overwritten.
+## Hardware contract and checks
 
-## Source-synchronous camera / 30fps stage 3
+- PS control clock: 62.5 MHz; camera XCLK: 24 MHz.
+- Frame buffer controller: `0x43C40000`, identity `0x51505031`, ABI `0x00010000`, dimensions `0x01E00280`.
+- Preview control: `0x43C30000`, identity `0x50525631`.
+- Camera identity at `0x40010010`: `0x43414D33`.
+- Binary BRAM: 19,200 words, two frame banks. Preserve byte/word address conversion and same-frame ownership.
 
-Stage3 source-synchronous camera work is isolated in `Vivado/qr_video30_stage3`.
-`tools/build_video30_stage3.tcl` starts from `baselines/qr_video30_stage2.bd` and
-replaces only the camera peripheral with CAM3: 24MHz XCLK, PCLK input registers
-and an XPM asynchronous FIFO. It explicitly pins the old RGB565-to-RGB888 remap
-against IP propagation defaults. PS/DDR clocks, addresses, physical wiring,
-autonomous preview, Feature IP and same-frame QR contract remain intact.
-Use `tools/run_video30_stage3.tcl` only with the matching firmware built using
-`-PlPreview -SourceSyncCamera -CameraClock 129 -CameraDrive 1 -Build Vitis_video30_stage3/build`.
-The qualified candidate is ~15fps (12MHz PCLK). CLKRC 128 / 24MHz PCLK
-passed a sensor colorbar test but corrupted real video on the current setup;
-it is diagnostic only, not an achieved 30fps release.
-See `Docs/VIDEO_30FPS_STAGE3_20260917.md` for validation state and limitations.
+After implementation inspect setup/hold timing, CDC, bus skew and camera input-register IOB placement before deployment. Export the implemented hardware with bitstream as a new local XSA for Vitis. Generated bitstream/XSA and hardware-upload scripts are intentionally excluded.
 
-## Original recovery history
-
-`current_project_snapshot/` contains the supplied `qrcode.xpr` and Block Design files for architecture/reference purposes.
-
-The project files were modified after `qr_test_working_ver0.xsa` was exported. In addition, the original project references external `rtl/`, `ip_repo/`, `xdc/`, `sim/`, and `core/` paths that were not all stored directly under the `.xpr` directory.
-
-For that reason:
-
-- keep `hardware/baseline/qr_test_working_ver0.xsa` only as the original, unmodified handoff; it did not produce a working camera preview in the on-board test;
-- use `hardware/rtl/` as the recovered custom source set;
-- do not treat the `.xpr` snapshot as a fully relocatable/reproducible project yet.
-
-The original block design put ILA probes directly on individual camera AXI4-Stream interface pins. Vivado treated those scalar probe nets as overrides of the interface connection: the reconstructed generated RTL drove the broadcaster's `s_axis_tvalid`, `s_axis_tuser`, and `s_axis_tlast` with `1'b0`, while the camera FIFO always saw `TREADY=1`. The repaired `qr_ip1_bd.bd` removes that ILA and its scalar probe nets so the camera output connects to the broadcaster through the AXI interface. It also explicitly preserves the RGB565-to-RGB888 converter's `TSTRB_REMAP` setting.
-
-On a Zybo Z7-20 with an OV7670, a Vivado 2024.2 build from the repaired design passed routing/bit generation (WNS +0.272 ns, no failing endpoints). The existing `Qr_barcode_working_ver0_app.elf` then advanced continuously past `RESULT_READY`, updated the HDMI framebuffer, and displayed a live grayscale camera image with `STATUS: SEARCHING`. No QR code was in view for a decode test.
-
-The locally generated, untracked artifacts are `Vivado/qr_probe/qr_probe.runs/impl_1/qr_ip1_bd_wrapper.bit` and `Vivado/qr_probe/qr_camera_fixed.xsa` (which includes the bitstream). They do not replace the original baseline files. Use the matching new XSA for future Vitis platform regeneration. A later cleanup can add a Tcl-based project/IP regeneration flow using the recovered source tree and the Digilent `vivado-library` dependencies.
+`hardware/tb` provides simulation sources. Board timing qualification and simulation/BD validation are different checks; renaming a design does not qualify a newly implemented bitstream.

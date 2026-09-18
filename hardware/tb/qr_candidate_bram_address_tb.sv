@@ -1,5 +1,5 @@
 `timescale 1ns/1ps
-// Replay the actual Stage4 generated BMG, not an ideal word-indexed RAM.
+// Replay the generated system BMG, not an ideal word-indexed RAM.
 // Only the external word-to-byte address conversion changes between cases.
 module qr_candidate_bram_address_tb;
     reg clk=0; always #8 clk=~clk;
@@ -13,7 +13,7 @@ module qr_candidate_bram_address_tb;
     wire [31:0] corrected_write, corrected_read;
 `ifdef QR_TEST_PINGPONG
     reg write_bank=0, read_bank=0;
-    qr_binary_pingpong_address adapter (
+    frame_buffer_address adapter (
         .write_bank(write_bank), .read_bank(read_bank),
 `else
     qr_binary_bram_address_adapter adapter (
@@ -24,7 +24,7 @@ module qr_candidate_bram_address_tb;
         .write_lanes(), .read_write_lanes());
     wire [31:0] write_address=correct_address ? corrected_write : {18'd0,write_word};
     wire [31:0] read_address=correct_address ? corrected_read : {18'd0,read_word};
-    qr_ip1_bd_blk_mem_gen_0_0 memory (
+    system_blk_mem_gen_0_0 memory (
         .clka(clk),.rsta(!resetn),.ena(write_en),.wea({4{write_en}}),
         .addra(write_address),.dina(write_data),.douta(),
         .clkb(read_clk),.rstb(read_rst),.enb(read_en),.web({4{read_we}}),

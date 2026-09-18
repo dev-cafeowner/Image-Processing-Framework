@@ -1,7 +1,0 @@
-{
-  "source": "recheck_control_repeat_20260918_selected.json",
-  "windows": 121,
-  "invalid_clock_windows": 0,
-  "lock_losses_max": 0.0,
-  "note": "MMCM status, not analog signal-integrity proof. CAM3 pclk_edges in this build counts conditioned clock cycles, not raw input transitions."
-}

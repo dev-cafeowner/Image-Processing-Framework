@@ -56,3 +56,22 @@ exact_gray_*.png
 /tools/release_major_profiles.psd1
 /tools/tests/test_release_publication.ps1
 /hardware/baseline/ps7_init.html
+
+# Source-only publication: local automation, evidence and generated artifacts
+/tools/
+/build/
+/external/
+/[Dd]ocs/
+/software/host/
+/hardware/baseline/
+/hardware/ip_repo/**/example_designs/
+*.ps1
+*.bat
+*.cmd
+*.exe
+*.dll
+*.bin
+*.xsa
+*.zip
+*.bundle
+*.bak
