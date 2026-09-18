@@ -944,6 +944,16 @@
         </spirit:wire>
       </spirit:port>
       <spirit:port>
+        <spirit:name>fe_mode_applied</spirit:name>
+        <spirit:wire>
+          <spirit:direction>out</spirit:direction>
+          <spirit:vector>
+            <spirit:left spirit:format="long">5</spirit:left>
+            <spirit:right spirit:format="long">0</spirit:right>
+          </spirit:vector>
+        </spirit:wire>
+      </spirit:port>
+      <spirit:port>
         <spirit:name>frame_stuck</spirit:name>
         <spirit:wire>
           <spirit:direction>in</spirit:direction>
@@ -1377,7 +1387,7 @@
         <xilinx:taxonomy>AXI_Peripheral</xilinx:taxonomy>
       </xilinx:taxonomies>
       <xilinx:displayName>Vision Front-End IP</xilinx:displayName>
-      <xilinx:coreRevision>4</xilinx:coreRevision>
+    <xilinx:coreRevision>5</xilinx:coreRevision>
       <xilinx:coreCreationDateTime>2026-08-04T22:15:56Z</xilinx:coreCreationDateTime>
     </xilinx:coreExtensions>
     <xilinx:packagingInfo>

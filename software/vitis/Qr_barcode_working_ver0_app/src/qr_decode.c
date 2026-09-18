@@ -4,8 +4,20 @@
 #include <string.h>
 
 #include "quirc.h"
+#if QR_PL_GUIDED
+#include "qr_candidate_geometry.h"
+static unsigned g_fallback_cooldown;
+static unsigned g_slow_audit_countdown;
+#endif
+#if QR_CANDIDATE_AUDIT
+#include "quirc_internal.h"
+#endif
 
 #include "xil_printf.h"
+#include "qr_perf.h"
+#include "runtime_log.h"
+/* Keep success/miss events serialized with asynchronous runtime summaries. */
+#define xil_printf runtime_log_printf
 
 
 /* ============================================================================
@@ -57,6 +69,13 @@
  * ========================================================================== */
 
 static struct quirc *g_quirc = NULL;
+static void (*g_progress_callback)(void);
+
+void qr_decode_set_progress_callback(void (*callback)(void))
+{
+    g_progress_callback = callback;
+    quirc_set_progress_callback(g_quirc, callback);
+}
 
 static int g_quirc_initialized = 0;
 
@@ -72,6 +91,31 @@ static struct quirc_data g_quirc_data;
  * Reset immediately after a successful payload decode.
  */
 static u32 g_qr_consecutive_miss = 0U;
+static qr_decode_profile_t g_profile;
+static char g_reported_payload[QR_DECODE_RESULT_MAX];
+static int g_reported_status = -1;
+
+const qr_decode_profile_t *qr_decode_last_profile(void)
+{
+    return &g_profile;
+}
+
+#if QR_CANDIDATE_AUDIT
+void qr_decode_audit_finders(u32 frame_id, int decode_status)
+{
+    int i;
+    if(!g_quirc) return;
+    xil_printf("[PSAUDIT] frame=%lu status=%d last_scan_caps=%d grids=%d scans=%lu first_grid_size=%d\r\n",
+        frame_id,decode_status,g_quirc->num_capstones,g_quirc->num_grids,g_profile.scans,
+        g_quirc->num_grids ? g_quirc->grids[0].grid_size : 0);
+    for(i=0;i<g_quirc->num_capstones;++i) {
+        const struct quirc_capstone *c=&g_quirc->capstones[i];
+        xil_printf("[PSCAP] frame=%lu i=%d cx=%d cy=%d grid=%d stone_pixels=%d\r\n",
+            frame_id,i,c->center.x,c->center.y,c->qr_grid,
+            (c->stone>=0 && c->stone<g_quirc->num_regions) ? g_quirc->regions[c->stone].count : 0);
+    }
+}
+#endif
 
 
 /* ============================================================================
@@ -295,10 +339,15 @@ static int qr_store_result(
     }
 
 
-    xil_printf(
-        "[QR PASS] %s\r\n",
-        result
-    );
+    /* Application event, not one UART payload per analyzed frame. Frame
+     * successes/failures are still counted independently in the runtime. */
+    if (QR_PER_FRAME_LOGS || g_reported_status != QR_DECODE_OK ||
+        strcmp(g_reported_payload, result) != 0) {
+        xil_printf("[QR PASS] %s\r\n", result);
+        strncpy(g_reported_payload, result, sizeof(g_reported_payload) - 1U);
+        g_reported_payload[sizeof(g_reported_payload) - 1U] = '\0';
+    }
+    g_reported_status = QR_DECODE_OK;
 
 
 #if QR_DECODE_VERBOSE
@@ -564,23 +613,28 @@ static int qr_decode_detected(
  * Run one complete quirc scan
  * ========================================================================== */
 
-static int qr_run_scan(
+static int qr_run_scan_impl(
     const u8 *gray,
     int mode,
     u8 raw_threshold,
     char *result,
     u32 result_size,
-    qr_decode_box_t *box
+    qr_decode_box_t *box,
+    int defer_refine
 )
 {
     uint8_t *quirc_image;
 
     int width;
     int height;
+    int status;
+    XTime phase_start, phase_end;
 
 
     width = 0;
     height = 0;
+    if (g_progress_callback != NULL) g_progress_callback();
+    quirc_set_progress_callback(g_quirc, g_progress_callback);
 
 
     quirc_image =
@@ -616,27 +670,57 @@ static int qr_run_scan(
     }
 
 
+    ++g_profile.scans;
+    phase_start = qr_perf_now();
     qr_fill_quirc_image(
         quirc_image,
         gray,
         mode,
         raw_threshold
     );
-
+    phase_end = qr_perf_now();
+    g_profile.fill_us += qr_perf_us(phase_start, phase_end);
 
     /*
      * Finder/grid identification.
      */
-    quirc_end(
-        g_quirc
-    );
-
-
-    return qr_decode_detected(
+    phase_start = phase_end;
+    quirc_end_unseeded(g_quirc, !defer_refine);
+    phase_end = qr_perf_now();
+    g_profile.identify_us += qr_perf_us(phase_start, phase_end);
+    phase_start = phase_end;
+    status = qr_decode_detected(
         result,
         result_size,
         box
     );
+    g_profile.payload_us += qr_perf_us(phase_start, qr_perf_now());
+#if QR_PL_GUIDED
+    if (defer_refine) {
+        if (status == QR_DECODE_OK) g_profile.fallback_early_pass = 1;
+        else if (quirc_count(g_quirc) > 0) {
+            int i;
+            ++g_profile.fallback_refine_attempts;
+            phase_start = qr_perf_now();
+            for (i=0; i<quirc_count(g_quirc); ++i) {
+                if (g_progress_callback) g_progress_callback();
+                quirc_refine_grid(g_quirc,i);
+            }
+            phase_end = qr_perf_now();
+            g_profile.fallback_refine_us += qr_perf_us(phase_start,phase_end);
+            g_profile.identify_us += qr_perf_us(phase_start,phase_end);
+            status = qr_decode_detected(result,result_size,box);
+            g_profile.payload_us += qr_perf_us(phase_end,qr_perf_now());
+        }
+    }
+#endif
+    return status;
+}
+
+static int qr_run_scan(const u8 *gray,int mode,u8 threshold,
+    char *result,u32 size,qr_decode_box_t *box)
+{
+    return qr_run_scan_impl(gray,mode,threshold,result,size,box,0);
 }
 
 
@@ -708,6 +792,9 @@ int qr_decode_init(void)
 
     g_qr_consecutive_miss =
         0U;
+#if QR_PL_GUIDED
+    g_fallback_cooldown = 0;
+#endif
 
 
     g_quirc_initialized =
@@ -775,6 +862,9 @@ int qr_decode_frame(
     int status;
 
     int saw_qr_region;
+    XTime range_start;
+
+    memset(&g_profile, 0, sizeof(g_profile));
 
 
     /* ========================================================================
@@ -812,42 +902,6 @@ int qr_decode_frame(
             return QR_DECODE_FAIL;
         }
     }
-
-
-    /* ========================================================================
-     * Per-frame Gray8 range
-     * ====================================================================== */
-
-    qr_find_min_max(
-        gray,
-        &min_value,
-        &max_value
-    );
-
-
-    threshold_160 =
-        qr_make_raw_threshold(
-            min_value,
-            max_value,
-            QR_FAST_THRESHOLD_NORM
-        );
-
-
-#if QR_DECODE_VERBOSE
-
-    xil_printf(
-        "\r\n"
-        "[QR] min=%u max=%u "
-        "fast_threshold=%u "
-        "miss=%u\r\n",
-
-        (unsigned int)min_value,
-        (unsigned int)max_value,
-        (unsigned int)threshold_160,
-        (unsigned int)g_qr_consecutive_miss
-    );
-
-#endif
 
 
     /* ========================================================================
@@ -891,6 +945,44 @@ int qr_decode_frame(
         saw_qr_region =
             1;
     }
+
+
+    /* ========================================================================
+     * Fallback-only Gray8 range (original scan does not need this)
+     * ====================================================================== */
+
+    range_start = qr_perf_now();
+    qr_find_min_max(
+        gray,
+        &min_value,
+        &max_value
+    );
+    g_profile.range_us = qr_perf_us(range_start, qr_perf_now());
+
+
+    threshold_160 =
+        qr_make_raw_threshold(
+            min_value,
+            max_value,
+            QR_FAST_THRESHOLD_NORM
+        );
+
+
+#if QR_DECODE_VERBOSE
+
+    xil_printf(
+        "\r\n"
+        "[QR] min=%u max=%u "
+        "fast_threshold=%u "
+        "miss=%u\r\n",
+
+        (unsigned int)min_value,
+        (unsigned int)max_value,
+        (unsigned int)threshold_160,
+        (unsigned int)g_qr_consecutive_miss
+    );
+
+#endif
 
 
     /* ========================================================================
@@ -1124,18 +1216,18 @@ int qr_decode_frame(
 
     if (saw_qr_region != 0) {
 
-        xil_printf(
-            "[QR MISS] REGION / ECC FAIL\r\n"
-        );
+        if (QR_PER_FRAME_LOGS || g_reported_status != QR_DECODE_FAIL)
+            xil_printf("[QR MISS] REGION / ECC FAIL\r\n");
+        g_reported_status = QR_DECODE_FAIL;
 
 
         return QR_DECODE_FAIL;
     }
 
 
-    xil_printf(
-        "[QR MISS] NO REGION\r\n"
-    );
+    if (QR_PER_FRAME_LOGS || g_reported_status != QR_DECODE_NOT_FOUND)
+        xil_printf("[QR MISS] NO REGION\r\n");
+    g_reported_status = QR_DECODE_NOT_FOUND;
 
 
     return QR_DECODE_NOT_FOUND;
@@ -1146,8 +1238,122 @@ int qr_decode_frame(
  * Deinitialize
  * ========================================================================== */
 
+#if QR_PL_GUIDED
+int qr_decode_guided_frame(const u8 *gray, const qr_candidate_packet_t *packet,
+    u32 frame_id, char *result, u32 result_size, qr_decode_box_t *box)
+{
+    qr_geometry_proposal_t proposals[QR_GEOMETRY_MAX_PROPOSALS];
+    qr_geometry_diagnostics_t geometry;
+    int n, i, status = QR_DECODE_NOT_FOUND, saw_grid = 0;
+    XTime start, phase;
+    memset(&g_profile, 0, sizeof(g_profile));
+    if (result && result_size) result[0] = '\0';
+    if (box) memset(box, 0, sizeof(*box));
+    if (!gray || !result || !result_size) return QR_DECODE_FAIL;
+    if (!g_quirc_initialized && qr_decode_init() != QR_DECODE_OK) return QR_DECODE_FAIL;
+    start = qr_perf_now();
+    g_profile.packet_reject = !packet || packet->frame_id != frame_id;
+    n = qr_candidate_geometry_ex(packet, frame_id, proposals, &geometry);
+    if (g_slow_audit_countdown) --g_slow_audit_countdown;
+    g_profile.proposal_us = qr_perf_us(start, qr_perf_now());
+    g_profile.geometry_reject = n == 0 && !g_profile.packet_reject;
+    /* At most two triplets, with no image or candidates reused across frames. */
+    for (i = 0; i < n; ++i) {
+        int w, h;
+        uint8_t *image;
+        start = qr_perf_now();
+        if (g_progress_callback) g_progress_callback();
+        image = quirc_begin(g_quirc, &w, &h);
+        if (!image || w != QR_DECODE_WIDTH || h != QR_DECODE_HEIGHT) return QR_DECODE_FAIL;
+        ++g_profile.scans;
+        ++g_profile.guided_attempts;
+        g_profile.roi_pixels += (proposals[i].roi.x1 - proposals[i].roi.x0) *
+                               (proposals[i].roi.y1 - proposals[i].roi.y0);
+        phase = qr_perf_now();
+        qr_fill_quirc_image(image, gray, QR_SCAN_ORIGINAL, 0);
+        g_profile.fill_us += qr_perf_us(phase, qr_perf_now());
+        phase = qr_perf_now();
+        quirc_set_progress_callback(g_quirc, g_progress_callback);
+        quirc_end_seeded(g_quirc, &proposals[i].roi, !QR_GUIDED_EARLY_DECODE);
+        g_profile.identify_us += qr_perf_us(phase, qr_perf_now());
+        phase = qr_perf_now();
+        status = qr_decode_detected(result, result_size, box);
+        g_profile.payload_us += qr_perf_us(phase, qr_perf_now());
+#if QR_GUIDED_EARLY_DECODE
+        if (status == QR_DECODE_OK) g_profile.early_pass = 1;
+        else if (quirc_count(g_quirc) > 0) {
+            /* Retain standard refinement on failure. Early results still
+             * require ordinary payload and ECC checks. */
+            ++g_profile.refine_attempts;
+            phase = qr_perf_now();
+            quirc_refine_grid(g_quirc, 0);
+            {
+                u32 us = qr_perf_us(phase, qr_perf_now());
+                g_profile.identify_us += us;
+                g_profile.refine_us += us;
+            }
+            phase = qr_perf_now();
+            status = qr_decode_detected(result, result_size, box);
+            g_profile.payload_us += qr_perf_us(phase, qr_perf_now());
+            if (status == QR_DECODE_OK) g_profile.refine_pass = 1;
+        }
+#endif
+        g_profile.guided_us += qr_perf_us(start, qr_perf_now());
+        if (status == QR_DECODE_OK) {
+            g_profile.guided_pass = 1;
+            g_fallback_cooldown = 0;
+            return status;
+        }
+        saw_grid |= status == QR_DECODE_FAIL;
+    }
+    /* Work-count bound, not a hard deadline: one full scan on the first miss,
+     * then at most once per six calls until the guided route recovers. A full
+     * scan success does not reset this throttle. No five-threshold retry loop. */
+    if (g_fallback_cooldown) {
+        --g_fallback_cooldown;
+        g_profile.fallback_skipped = 1;
+    } else {
+        g_fallback_cooldown = 5;
+        g_profile.fallback_attempts = 1;
+        start = qr_perf_now();
+        status = qr_run_scan_impl(gray, QR_SCAN_ORIGINAL, 0, result, result_size, box, QR_FALLBACK_EARLY_DECODE);
+        g_profile.fallback_us = qr_perf_us(start, qr_perf_now());
+#if QR_ROUTE_AUDIT
+        if (!g_slow_audit_countdown) {
+            /* At most one bounded event per 30 analyzed frames. Diagnostic
+             * counts explain rejected proposals, never relax pixel/ECC checks. */
+            g_slow_audit_countdown=30;
+            xil_printf("[SLOW] frame=%lu count=%lu kept=%lu triples=%lu spacing=%lu span=%lu angle=%lu invalid=%lu proposals=%d guided_tries=%lu fallback_us=%lu early=%lu refined=%lu status=%d\r\n",
+                frame_id,geometry.input_count,geometry.filtered_count,geometry.triplets,
+                geometry.spacing_reject,geometry.span_reject,geometry.angle_reject,geometry.invalid,
+                n,g_profile.guided_attempts,g_profile.fallback_us,g_profile.fallback_early_pass,
+                g_profile.fallback_refine_attempts,status);
+        }
+#endif
+        if (status == QR_DECODE_OK) {
+            g_profile.fallback_pass = 1;
+            return status;
+        }
+        saw_grid |= status == QR_DECODE_FAIL;
+    }
+    status = saw_grid ? QR_DECODE_FAIL : QR_DECODE_NOT_FOUND;
+    if (QR_PER_FRAME_LOGS || g_reported_status != status)
+        xil_printf("[QR MISS] guided/fallback status=%d throttled=%lu\r\n",
+                   status, g_profile.fallback_skipped);
+    g_reported_status = status;
+    return status;
+}
+#endif
+
 void qr_decode_deinit(void)
 {
+#if QR_PL_GUIDED
+    g_fallback_cooldown = 0;
+    g_slow_audit_countdown = 0;
+#endif
+    g_reported_status = -1;
+    g_reported_payload[0] = '\0';
+    memset(&g_profile, 0, sizeof(g_profile));
     if (g_quirc != NULL) {
 
         quirc_destroy(

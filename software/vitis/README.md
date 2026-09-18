@@ -1,118 +1,26 @@
 # Vitis Software
 
-## Environment
+현재 애플리케이션은 Zybo Z7-20 / Cortex-A9 Standalone / Vitis 2024.2의 QR 30fps + Fast fallback 구현이다. [현재 버전 상세](../../docs/CURRENT_VERSION.md)를 기준으로 사용한다.
 
-- Vitis 2024.2
-- Standalone Bare-Metal Application
-- Target Board: Zybo Z7-20
-- Device: Zynq-7020
+## 현재 경로
 
-## Verified Software Baseline
+`Qr_barcode_working_ver0_app/src/helloworld.c` → `stage6_qr_runtime_run()`.
 
-`Qr_barcode_working_ver0_app/` contains the Vitis application source used
-for the board-level verified runtime.
+Runtime은 OV7670 SCCB 설정, DMA·프레임 소유권, 동일-frame QRP1 후보 검증, 후보 조합·Geometry/ROI, 실제 영상 기반 payload/ECC 검사, 제한된 fallback, UART/HUD를 담당한다. **현재는 PL 후보를 PS 해독에 사용한다.** 전체 화면 해독만 수행하던 설명은 초기 버전에 해당한다.
 
-The corresponding hardware handoff is:
+## 하드웨어와 실행 프로파일
 
-`hardware/baseline/qr_test_working_ver0.xsa`
+- 현재 PL: QPP1 `qr_frame_pingpong.bit/.xsa`
+- 현재 ELF: `fallback_fast/Qr_barcode_working_ver0_app.elf`
+- 선택 프로파일: PL preview, source-sync/clean PCLK, CLKRC128, drive0, frontend4, guided/early decode, ping-pong, seed8, wait100us, route audit, fast fallback.
+- 일반 실행에서는 colorbars·blank·stall·후보 부족 주입을 끈다.
 
-The original Vitis workspace, generated platform, BSP, build, and IDE files
-are not included in this repository.
+[qr-v0.11.0 Assets](https://github.com/dev-cafeowner/Image-Processing-Framework/releases/tag/qr-v0.11.0)의 ZIP을 새 폴더에 풀어 패키지의 `run.ps1`을 사용한다. 로컬 생성 프로젝트가 이미 있는 경우 저장소 루트의 `tools/run_current.tcl`을 사용한다. 초기 `hardware/baseline` XSA는 현재 QPP1 소스의 실행 하드웨어가 아니다.
 
-Only the application source and required configuration files are preserved.
+## 소스와 재빌드
 
-## Verified Runtime Path
+애플리케이션 소스·Host 시험은 Git에 있고, 생성 Vitis workspace/BSP/IDE/build 파일은 제외한다. 빌드에는 설치된 Xilinx 도구와 적합한 Standalone BSP가 필요하다. 현재 빌드 옵션과 별도 출력 디렉터리 예시는 [개발 안내](../../docs/CURRENT_VERSION.md#실행과-개발)에 있다.
 
-The board-level runtime was verified with the following processing path:
+`tools/` 하위 캡처 유틸리티와 애플리케이션의 bring-up 시험은 진단용이다. Host 회귀 테스트와 실기기 검증은 구분하며, 소스 업로드만으로 새 ELF가 기존 측정 바이너리와 동일하다고 간주하지 않는다.
 
-OV7670 Camera
-→ PL Vision Front-End
-→ Gray8 Image DMA
-→ DDR / PS
-→ PS Full-Frame QR Decode
-→ UART / HDMI Output
-
-The software configures the camera and PL runtime, receives the Gray8 image
-through AXI DMA, performs QR decoding on the PS, and outputs the recognition
-result through UART and HDMI.
-
-QR recognition was verified on the Zybo Z7-20 board using actual camera input.
-
-## PL QR Candidate Pipeline
-
-The PL QR candidate detection pipeline was implemented and verified separately.
-
-Run-Length Scan
-→ 1:1:3:1:1 Detection
-→ Vertical Cross-Check
-→ HIT Event Stream
-→ Sparse CCL
-→ Object Properties
-→ Candidate Result
-
-In the current board demonstration runtime, the PL candidate records are
-not directly used by the PS QR decoder.
-
-The QRP1 result stream is received and drained, while final QR recognition
-is performed using the full-frame Gray8 image on the PS.
-
-Therefore, the repository distinguishes between:
-
-- PL candidate pipeline implementation and verification
-- Board-level QR recognition using the PS full-frame decoder
-
-## Application Source
-
-The verified application is stored under:
-
-`software/vitis/Qr_barcode_working_ver0_app/`
-
-Application entry point:
-
-`src/helloworld.c`
-
-Main runtime:
-
-`src/stage6_qr_runtime.c`
-
-The runtime includes:
-
-- OV7670 SCCB configuration
-- Vision Front-End control
-- Runtime CSR control
-- AXI DMA handling
-- Gray8 frame transfer
-- QR decoding
-- HDMI framebuffer output
-- UART result output
-
-The QR decoder uses the included `quirc` library.
-
-## Reusing the Software
-
-1. Open Vitis 2024.2.
-2. Create a Platform Component using `hardware/baseline/qr_test_working_ver0.xsa`.
-3. Create a Standalone domain for the Cortex-A9 processor.
-4. Create an Application Component.
-5. Add the application sources from `software/vitis/Qr_barcode_working_ver0_app/src/`.
-6. Build the application.
-7. Program the FPGA using the corresponding hardware design.
-8. Run the application on the Zynq PS.
-
-## Repository Policy
-
-This directory preserves the actual tested software baseline.
-
-The verified application source is intentionally preserved without
-refactoring so that the repository remains traceable to the board-level
-demonstration.
-
-Generated Vitis workspace files, BSP files, IDE metadata, and build
-artifacts are not treated as project source and are excluded from Git.
-
-## Host Utilities
-
-`tools/` contains host-side scripts used during camera and Gray8 image
-bring-up.
-
-Generated image captures and temporary output files are not stored in Git.
+과거 실행 파일은 [릴리즈](../../docs/RELEASES.md)에 보존한다. 라이브 카메라 사진과 해독 payload를 포함한 원시 로그는 업로드하지 않는다.

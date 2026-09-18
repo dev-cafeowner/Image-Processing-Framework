@@ -55,12 +55,30 @@ int quirc_resize(struct quirc *q, int w, int h);
  */
 uint8_t *quirc_begin(struct quirc *q, int *w, int *h);
 void quirc_end(struct quirc *q);
+/* Full-image finder scan; refine=0 permits ECC-first with later refinement.
+ * quirc_end() retains the original refine=1 behavior. */
+void quirc_end_unseeded(struct quirc *q, int refine);
+/* Optional foreground service during recognition; callback must not re-enter q. */
+void quirc_set_progress_callback(struct quirc *q, void (*callback)(void));
 
 /* This structure describes a location in the input image buffer. */
 struct quirc_point {
 	int	x;
 	int	y;
 };
+
+/* Local extension: PL seeds restrict Finder search, but each Finder's ring,
+ * center region and corners are reconstructed from image pixels. The same
+ * quirc geometry/alignment/ECC remains authoritative. Coordinates stay in
+ * the full image; x1/y1 are exclusive. Call begin/fill before every attempt. */
+struct quirc_finder_seed {int x,y,radius;};
+struct quirc_seeded_roi {
+    int x0,y0,x1,y1,search_half_width;
+    struct quirc_finder_seed seed[3];
+};
+/* refine=0 defers iterative optimization, not geometry or ECC checks. */
+int quirc_end_seeded(struct quirc *q,const struct quirc_seeded_roi *roi,int refine);
+void quirc_refine_grid(struct quirc *q, int index);
 
 /* This enum describes the various decoder errors which may occur. */
 typedef enum {

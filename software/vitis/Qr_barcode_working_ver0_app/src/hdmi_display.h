@@ -23,6 +23,7 @@ typedef struct
 {
     DisplayCtrl display;
     int initialized;
+    int render_frame; /* -1: no CPU reservation; single-threaded renderer only. */
 
 } hdmi_display_t;
 
@@ -45,9 +46,17 @@ int hdmi_display_show_gray8(
     const u8 *gray
 );
 
+/* Reserve a buffer that is neither scanned out nor pending. Render, then
+ * commit (flush + schedule), or cancel if the capture source changed.
+ * No writes to VDMA-owned capture/scanout buffers are permitted.
+ */
+u8 *hdmi_display_begin_frame(hdmi_display_t *hdmi);
+int hdmi_display_commit_frame(hdmi_display_t *hdmi);
+void hdmi_display_cancel_frame(hdmi_display_t *hdmi);
+
 
 /*
- * 현재 HDMI framebuffer 주소.
+ * Most recently submitted HDMI framebuffer address (switches at frame end).
  */
 UINTPTR hdmi_display_frame_addr(void);
 

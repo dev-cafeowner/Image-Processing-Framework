@@ -14,12 +14,8 @@
 
 #define VIDEO_VDMA_RESET_TIMEOUT 1000000U
 
-/*
- * These buffers are intentionally private to the Stage 4-B VDMA sink.
- * The QR path does not read them; they only keep the existing RGB888 VDMA
- * branch consuming the camera stream while the new Gray8 Image DMA is tested.
- */
-static u8 video_sink_frame[VIDEO_VDMA_FRAME_BYTES] VIDEO_VDMA_ALIGNED;
+/* Real circular capture stores; CPU only reads a completed store. */
+static u8 video_sink_frame[VIDEO_VDMA_NUM_FRAMES][VIDEO_VDMA_FRAME_BYTES] VIDEO_VDMA_ALIGNED;
 
 static int video_vdma_wait_reset_done(XAxiVdma *instance)
 {
@@ -60,6 +56,12 @@ int video_vdma_s2mm_init_start(video_vdma_s2mm_t *vdma, UINTPTR baseaddr)
         (vdma->instance.MaxNumFrames < (int)VIDEO_VDMA_NUM_FRAMES)) {
         return XST_FAILURE;
     }
+#if QR_PL_PREVIEW
+    if (!config->InternalGenLock || config->Mm2SGenLock != XAXIVDMA_DYN_GENLOCK_SLAVE ||
+        config->S2MmGenLock != XAXIVDMA_DYN_GENLOCK_MASTER ||
+        vdma->instance.MaxNumFrames != (int)VIDEO_VDMA_NUM_FRAMES)
+        return XST_FAILURE;
+#endif
 
     vdma->baseaddr = baseaddr;
 
@@ -83,21 +85,17 @@ int video_vdma_s2mm_init_start(video_vdma_s2mm_t *vdma, UINTPTR baseaddr)
     vdma->setup.Stride = (int)VIDEO_VDMA_STRIDE;
     vdma->setup.FrameDelay = 0;
     vdma->setup.EnableCircularBuf = 1;
-    vdma->setup.EnableSync = 0;
+    vdma->setup.EnableSync = QR_PL_PREVIEW ? 1 : 0;
     vdma->setup.PointNum = 0;
     vdma->setup.EnableFrameCounter = 0;
     vdma->setup.FixedFrameStoreAddr = 0;
-    vdma->setup.GenLockRepeat = 0;
+    vdma->setup.GenLockRepeat = QR_PL_PREVIEW ? 1 : 0;
     vdma->setup.EnableVFlip = 0U;
 
-    /*
-     * Stage 4-B only needs a consuming sink, not four distinct display frames.
-     * Point all four hardware frame stores at the same aligned RGB888 buffer.
-     */
-    Xil_DCacheFlushRange((INTPTR)video_sink_frame, VIDEO_VDMA_FRAME_BYTES);
+    Xil_DCacheFlushRange((INTPTR)video_sink_frame, sizeof(video_sink_frame));
     for (i = 0U; i < VIDEO_VDMA_NUM_FRAMES; ++i) {
         vdma->setup.FrameStoreStartAddr[i] =
-            (UINTPTR)video_sink_frame;
+            (UINTPTR)video_sink_frame[i];
     }
 
     status = XAxiVdma_DmaConfig(&vdma->instance,
@@ -124,6 +122,9 @@ int video_vdma_s2mm_init_start(video_vdma_s2mm_t *vdma, UINTPTR baseaddr)
         ((video_vdma_s2mm_status(vdma) & XAXIVDMA_SR_HALTED_MASK) != 0U)) {
         return XST_FAILURE;
     }
+#if QR_PL_PREVIEW
+    if ((video_vdma_s2mm_cr(vdma) & 0x8BU) != 0x8BU) return XST_FAILURE;
+#endif
 
     return XST_SUCCESS;
 }
@@ -163,5 +164,24 @@ UINTPTR video_vdma_frame_addr(u32 index)
         return (UINTPTR)0U;
     }
 
-    return (UINTPTR)video_sink_frame;
+    return (UINTPTR)video_sink_frame[index];
+}
+
+int video_vdma_latest_complete(video_vdma_s2mm_t *vdma, u32 *index, u32 *writer)
+{
+    u32 current;
+    /* Dynamic master may skip stores: (writer-1)%N is not a completed index. */
+    if (QR_PL_PREVIEW) return -1;
+    if (!vdma || !index || !writer) return -1;
+    if (video_vdma_s2mm_status(vdma) &
+        (XAXIVDMA_SR_ERR_ALL_MASK | XAXIVDMA_SR_HALTED_MASK)) return -1;
+    current = XAxiVdma_CurrFrameStore(&vdma->instance, XAXIVDMA_WRITE);
+    if (current >= VIDEO_VDMA_NUM_FRAMES) return -1;
+    if (current == vdma->observed_write_frame) return 0;
+    vdma->observed_frames += (current + VIDEO_VDMA_NUM_FRAMES -
+                             vdma->observed_write_frame) % VIDEO_VDMA_NUM_FRAMES;
+    vdma->observed_write_frame = current;
+    *writer = current;
+    *index = (current + VIDEO_VDMA_NUM_FRAMES - 1U) % VIDEO_VDMA_NUM_FRAMES;
+    return 1;
 }

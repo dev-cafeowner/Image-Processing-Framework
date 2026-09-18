@@ -276,7 +276,8 @@ int DisplayStart(DisplayCtrl *dispPtr)
 		xdbg_printf(XDBG_DEBUG_GENERAL, "Start read transfer failed %d\r\n", Status);
 		return XST_FAILURE;
 	}
-	Status = XAxiVdma_StartParking(dispPtr->vdma, dispPtr->curFrame, XAXIVDMA_READ);
+	Status = dispPtr->autoGenlock ? XST_SUCCESS :
+        XAxiVdma_StartParking(dispPtr->vdma, dispPtr->curFrame, XAXIVDMA_READ);
 	if (Status != XST_SUCCESS)
 	{
 		xdbg_printf(XDBG_DEBUG_GENERAL, "Unable to park the channel %d\r\n", Status);
@@ -323,6 +324,7 @@ int DisplayInitialize(DisplayCtrl *dispPtr, XAxiVdma *vdma, UINTPTR vtcLookupKey
 	 * Initialize all the fields in the DisplayCtrl struct
 	 */
 	dispPtr->curFrame = 1;
+	dispPtr->autoGenlock = 0;
 	dispPtr->dynClkAddr = dynClkAddr;
 	for (i = 0; i < DISPLAY_NUM_FRAMES; i++)
 	{
@@ -381,6 +383,8 @@ int DisplayInitialize(DisplayCtrl *dispPtr, XAxiVdma *vdma, UINTPTR vtcLookupKey
 	dispPtr->vdmaConfig.EnableSync = 0;
 	dispPtr->vdmaConfig.PointNum = 0;
 	dispPtr->vdmaConfig.EnableFrameCounter = 0;
+	dispPtr->vdmaConfig.GenLockRepeat = 0;
+	dispPtr->vdmaConfig.EnableVFlip = 0;
 
 	return XST_SUCCESS;
 }
@@ -445,6 +449,7 @@ int DisplaySetMode(DisplayCtrl *dispPtr, const VideoMode *newMode)
 
 int DisplayChangeFrame(DisplayCtrl *dispPtr, u32 frameIndex)
 {
+	if (dispPtr->autoGenlock) return XST_FAILURE;
 	int Status;
 
 	dispPtr->curFrame = frameIndex;

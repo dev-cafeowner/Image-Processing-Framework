@@ -4,6 +4,7 @@
 #include "xstatus.h"
 
 #include "stage6_qr_runtime.h"
+#include "runtime_log.h"
 
 
 int main(void)
@@ -16,6 +17,8 @@ int main(void)
 
     status =
         stage6_qr_runtime_run();
+
+    runtime_log_finish();
 
 
     xil_printf(

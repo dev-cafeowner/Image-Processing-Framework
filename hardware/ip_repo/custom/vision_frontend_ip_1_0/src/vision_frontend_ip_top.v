@@ -115,6 +115,7 @@ module vision_frontend_ip_top #(
     input  wire                 pl_frame_release,
     output wire                 frame_ready,
     output wire [7:0]           valid_margin,
+    output wire [5:0]           fe_mode_applied,
     input  wire                 frame_stuck,
 
     // ---- Binary Frame BRAM write port A ------------------------------------
@@ -247,6 +248,7 @@ module vision_frontend_ip_top #(
 
     reg       busy_q;
     reg [5:0] mode_applied_q;
+    assign fe_mode_applied = mode_applied_q;
 
     always @(posedge aclk) begin
         if (!pipe_aresetn) begin

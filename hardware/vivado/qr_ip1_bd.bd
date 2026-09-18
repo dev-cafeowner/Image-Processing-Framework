@@ -39,8 +39,7 @@
       "xlconstant_480": "",
       "axi_dma_image": "",
       "const_zero1": "",
-      "const_zero2": "",
-      "ila_0": ""
+      "const_zero2": ""
     },
     "interface_ports": {
       "DDR": {
@@ -1741,14 +1740,17 @@
       },
       "ov7670_axis_0": {
         "vlnv": "xilinx.com:user:ov7670_axis:1.0",
-        "ip_revision": "3",
+        "ip_revision": "4",
         "xci_name": "qr_ip1_bd_ov7670_axis_0_0",
         "xci_path": "ip/qr_ip1_bd_ov7670_axis_0_0/qr_ip1_bd_ov7670_axis_0_0.xci",
-        "inst_hier_path": "ov7670_axis_0"
+        "inst_hier_path": "ov7670_axis_0",
+        "parameters": {
+          "C_XCLK_DIV": { "value": "2" }
+        }
       },
       "vision_frontend_ip_0": {
         "vlnv": "xilinx.com:user:vision_frontend_ip:1.0",
-        "ip_revision": "4",
+        "ip_revision": "5",
         "xci_name": "qr_ip1_bd_vision_frontend_ip_0_0",
         "xci_path": "ip/qr_ip1_bd_vision_frontend_ip_0_0/qr_ip1_bd_vision_frontend_ip_0_0.xci",
         "inst_hier_path": "vision_frontend_ip_0",
@@ -2318,6 +2320,9 @@
           },
           "TDATA_REMAP": {
             "value": "tdata[15:11],tdata[15:13],tdata[10:5],tdata[10:9],tdata[4:0],tdata[4:2]"
+          },
+          "TSTRB_REMAP": {
+            "value": "1'b1,tstrb[1:0]"
           }
         },
         "interface_ports": {
@@ -2615,7 +2620,10 @@
           "capture_enable": {
             "direction": "I"
           },
-          "frame_slot_available": {
+          "frontend_frame_ready": {
+            "direction": "I"
+          },
+          "frame_release": {
             "direction": "I"
           },
           "next_frame_id": {
@@ -2650,6 +2658,11 @@
           },
           "image_geometry_error": {
             "direction": "O"
+          },
+          "frame_drop_count": {
+            "direction": "O",
+            "left": "15",
+            "right": "0"
           }
         }
       },
@@ -2751,24 +2764,6 @@
           },
           "CONST_WIDTH": {
             "value": "6"
-          }
-        }
-      },
-      "ila_0": {
-        "vlnv": "xilinx.com:ip:ila:6.2",
-        "ip_revision": "16",
-        "xci_name": "qr_ip1_bd_ila_0_1",
-        "xci_path": "ip/qr_ip1_bd_ila_0_1/qr_ip1_bd_ila_0_1.xci",
-        "inst_hier_path": "ila_0",
-        "parameters": {
-          "C_DATA_DEPTH": {
-            "value": "8192"
-          },
-          "C_MONITOR_TYPE": {
-            "value": "Native"
-          },
-          "C_NUM_OF_PROBES": {
-            "value": "9"
           }
         }
       }
@@ -3012,12 +3007,6 @@
           "xlconcat_0/In3"
         ]
       },
-      "axis_broadcaster_0_s_axis_tready": {
-        "ports": [
-          "axis_broadcaster_0/s_axis_tready",
-          "ila_0/probe8"
-        ]
-      },
       "cam_data_0_1": {
         "ports": [
           "cam_data_0",
@@ -3027,22 +3016,19 @@
       "cam_href_0_1": {
         "ports": [
           "cam_href_0",
-          "ov7670_axis_0/cam_href",
-          "ila_0/probe3"
+          "ov7670_axis_0/cam_href"
         ]
       },
       "cam_pclk_0_1": {
         "ports": [
           "cam_pclk_0",
-          "ov7670_axis_0/cam_pclk",
-          "ila_0/probe1"
+          "ov7670_axis_0/cam_pclk"
         ]
       },
       "cam_vsync_0_1": {
         "ports": [
           "cam_vsync_0",
-          "ov7670_axis_0/cam_vsync",
-          "ila_0/probe2"
+          "ov7670_axis_0/cam_vsync"
         ]
       },
       "const_one_dout": {
@@ -3055,8 +3041,7 @@
       },
       "const_zero1_dout": {
         "ports": [
-          "const_zero1/dout",
-          "qr_runtime_exact_0/frame_drop_count"
+          "const_zero1/dout"
         ]
       },
       "const_zero2_dout": {
@@ -3067,8 +3052,7 @@
       },
       "const_zero2_dout1": {
         "ports": [
-          "const_zero2/dout",
-          "qr_runtime_exact_0/fe_mode_applied"
+          "const_zero2/dout"
         ]
       },
       "const_zero_dout": {
@@ -3080,26 +3064,7 @@
       "ov7670_axis_0_cam_xclk": {
         "ports": [
           "ov7670_axis_0/cam_xclk",
-          "cam_xclk_0",
-          "ila_0/probe0"
-        ]
-      },
-      "ov7670_axis_0_m00_axis_tlast": {
-        "ports": [
-          "ov7670_axis_0/m00_axis_tlast",
-          "ila_0/probe6"
-        ]
-      },
-      "ov7670_axis_0_m00_axis_tuser": {
-        "ports": [
-          "ov7670_axis_0/m00_axis_tuser",
-          "ila_0/probe5"
-        ]
-      },
-      "ov7670_axis_0_m00_axis_tvalid": {
-        "ports": [
-          "ov7670_axis_0/m00_axis_tvalid",
-          "ila_0/probe4"
+          "cam_xclk_0"
         ]
       },
       "proc_sys_reset_0_interconnect_aresetn": {
@@ -3125,8 +3090,7 @@
           "vision_frontend_ip_0/aresetn",
           "qr_runtime_exact_0/s00_axi_aresetn",
           "qr_rgb565_gray8_axis_0/aresetn",
-          "axi_dma_image/axi_resetn",
-          "ila_0/probe7"
+          "axi_dma_image/axi_resetn"
         ]
       },
       "processing_system7_0_FCLK_CLK0": {
@@ -3160,8 +3124,7 @@
           "qr_runtime_exact_0/s00_axi_aclk",
           "qr_rgb565_gray8_axis_0/aclk",
           "axi_dma_image/s_axi_lite_aclk",
-          "axi_dma_image/m_axi_s2mm_aclk",
-          "ila_0/clk"
+          "axi_dma_image/m_axi_s2mm_aclk"
         ]
       },
       "processing_system7_0_FCLK_CLK1": {
@@ -3203,7 +3166,8 @@
       "qr_runtime_exact_0_frontend_frame_release": {
         "ports": [
           "qr_runtime_exact_0/frontend_frame_release",
-          "vision_frontend_ip_0/pl_frame_release"
+          "vision_frontend_ip_0/pl_frame_release",
+          "qr_rgb565_gray8_axis_0/frame_release"
         ]
       },
       "qr_runtime_exact_0_frontend_frame_stuck": {
@@ -3330,8 +3294,25 @@
         "ports": [
           "vision_frontend_ip_0/frame_ready",
           "qr_runtime_exact_0/frontend_frame_ready",
-          "qr_runtime_exact_0/frontend_valid_margin",
-          "qr_rgb565_gray8_axis_0/frame_slot_available"
+          "qr_rgb565_gray8_axis_0/frontend_frame_ready"
+        ]
+      },
+      "vision_frontend_ip_0_valid_margin": {
+        "ports": [
+          "vision_frontend_ip_0/valid_margin",
+          "qr_runtime_exact_0/frontend_valid_margin"
+        ]
+      },
+      "vision_frontend_ip_0_fe_mode_applied": {
+        "ports": [
+          "vision_frontend_ip_0/fe_mode_applied",
+          "qr_runtime_exact_0/fe_mode_applied"
+        ]
+      },
+      "qr_rgb565_gray8_axis_0_frame_drop_count": {
+        "ports": [
+          "qr_rgb565_gray8_axis_0/frame_drop_count",
+          "qr_runtime_exact_0/frame_drop_count"
         ]
       },
       "vision_frontend_ip_0_wr_addr": {

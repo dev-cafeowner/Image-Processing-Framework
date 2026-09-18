@@ -1,9 +1,10 @@
 `timescale 1ns / 1ps
 /*
- * AXI RGB565 pass-through with a passive Gray8 DMA tap.
+ * Select one camera frame for BOTH the Front-End and Gray8 DMA.
  *
- * The Front-End path owns backpressure. A pixel is converted only when the
- * RGB565 beat is actually accepted by the Front-End (TVALID && TREADY).
+ * The slot is reserved at SOF until PS ACK/release, including the time before
+ * frame_ready rises. Skipped frames drain without stalling the live preview.
+ * capture_enable is sampled at SOF; changing it cannot truncate a frame.
  * Four Gray8 pixels are packed into one 32-bit word in little-endian byte-lane
  * order: first pixel -> TDATA[7:0].
  *
@@ -21,7 +22,8 @@ module qr_rgb565_gray8_axis_tap #(
     input  wire [11:0]  cfg_width,
     input  wire [11:0]  cfg_height,
     input  wire         capture_enable,
-    input  wire         frame_slot_available,
+    input  wire         frontend_frame_ready,
+    input  wire         frame_release,
     input  wire [31:0]  next_frame_id,
     input  wire         stat_clear,
 
@@ -48,6 +50,7 @@ module qr_rgb565_gray8_axis_tap #(
     output wire         image_tx_done,
     output reg  [31:0]  image_frame_id,
     output reg  [16:0]  image_word_count,
+    output reg  [15:0]  frame_drop_count,
 
     output reg          image_overflow_error,
     output reg          image_frame_drop_error,
@@ -57,18 +60,55 @@ module qr_rgb565_gray8_axis_tap #(
     localparam [7:0] COEF_G = 8'd150;
     localparam [7:0] COEF_B = 8'd29;
 
+    reg snapshot_inflight;
+    reg selected_frame;
+    reg [11:0] fe_row;
+    wire slot_available = !snapshot_inflight && !frontend_frame_ready;
+    wire accept_sof = capture_enable && slot_available &&
+                      (cfg_width != 0) && (cfg_height != 0) &&
+                      (cfg_width[1:0] == 0);
+    wire forward_pixel = s_axis_tuser ? accept_sof : selected_frame;
     assign m_fe_axis_tdata  = s_axis_tdata;
-    assign m_fe_axis_tvalid = s_axis_tvalid;
+    assign m_fe_axis_tvalid = s_axis_tvalid && forward_pixel;
     assign m_fe_axis_tuser  = s_axis_tuser;
     assign m_fe_axis_tlast  = s_axis_tlast;
-    assign s_axis_tready    = m_fe_axis_tready;
+    assign s_axis_tready    = !forward_pixel || m_fe_axis_tready;
 
     wire rgb_fire = s_axis_tvalid && s_axis_tready;
     assign frame_sof_accept =
         rgb_fire &&
         s_axis_tuser &&
-        capture_enable &&
-        frame_slot_available;
+        accept_sof;
+
+    always @(posedge aclk or negedge aresetn) begin
+        if (!aresetn) begin
+            snapshot_inflight <= 1'b0;
+            selected_frame <= 1'b0;
+            fe_row <= 12'd0;
+            frame_drop_count <= 16'd0;
+        end else begin
+            if (frame_release)
+                snapshot_inflight <= 1'b0;
+            if (stat_clear)
+                frame_drop_count <= 16'd0;
+            if (rgb_fire) begin
+                if (s_axis_tuser) begin
+                    selected_frame <= accept_sof;
+                    fe_row <= 12'd0;
+                    if (accept_sof)
+                        snapshot_inflight <= 1'b1;
+                    else if (frame_drop_count != 16'hffff)
+                        frame_drop_count <= frame_drop_count + 16'd1;
+                end
+                if (forward_pixel && s_axis_tlast) begin
+                    if ((s_axis_tuser ? 12'd0 : fe_row) == cfg_height - 1)
+                        selected_frame <= 1'b0;
+                    else
+                        fe_row <= (s_axis_tuser ? 12'd0 : fe_row) + 12'd1;
+                end
+            end
+        end
+    end
 
     wire [4:0] r5 = s_axis_tdata[15:11];
     wire [5:0] g6 = s_axis_tdata[10:5];
@@ -123,10 +163,7 @@ module qr_rgb565_gray8_axis_tap #(
                 s1_b <= mul_b;
                 s1_user <= s_axis_tuser;
                 s1_last <= s_axis_tlast;
-                s1_accept <=
-                    s_axis_tuser &&
-                    capture_enable &&
-                    frame_slot_available;
+                s1_accept <= frame_sof_accept;
                 s1_frame_id <= next_frame_id;
             end
 
@@ -145,6 +182,7 @@ module qr_rgb565_gray8_axis_tap #(
     reg [1:0]  byte_count;
     reg [31:0] pack_reg;
     reg [11:0] row_count;
+    reg [11:0] col_count;
     reg        first_word_pending;
 
     wire start_gray =
@@ -154,7 +192,7 @@ module qr_rgb565_gray8_axis_tap #(
 
     wire active_gray =
         gray_valid &&
-        (capturing || start_gray);
+        (gray_user ? gray_accept : capturing);
 
     wire [1:0] byte_eff =
         start_gray ? 2'd0 : byte_count;
@@ -216,6 +254,7 @@ module qr_rgb565_gray8_axis_tap #(
             byte_count <= 2'd0;
             pack_reg <= 32'd0;
             row_count <= 12'd0;
+            col_count <= 12'd0;
             first_word_pending <= 1'b0;
 
             wr_ptr <= {FIFO_AW{1'b0}};
@@ -236,9 +275,11 @@ module qr_rgb565_gray8_axis_tap #(
                 image_geometry_error <= 1'b0;
             end
 
-            if (rgb_fire && s_axis_tuser &&
-                !(capture_enable && frame_slot_available))
+            // Intentional skipped SOFs are a counter, NOT a protocol error.
+            if (gray_valid && gray_user && capturing) begin
                 image_frame_drop_error <= 1'b1;
+                image_geometry_error <= 1'b1;
+            end
 
             if (gray_valid && gray_user) begin
                 if (gray_accept) begin
@@ -249,6 +290,7 @@ module qr_rgb565_gray8_axis_tap #(
                     byte_count <= 2'd0;
                     pack_reg <= 32'd0;
                     row_count <= 12'd0;
+                    col_count <= 12'd0;
                     image_frame_id <= gray_frame_id;
                     image_word_count <= 17'd0;
                     first_word_pending <= 1'b1;
@@ -260,6 +302,7 @@ module qr_rgb565_gray8_axis_tap #(
 
             if (active_gray) begin
                 pack_reg <= pack_next;
+                col_count <= (start_gray ? 12'd0 : col_count) + 12'd1;
 
                 if (word_ready) begin
                     byte_count <= 2'd0;
@@ -276,6 +319,9 @@ module qr_rgb565_gray8_axis_tap #(
                 end
 
                 if (gray_last) begin
+                    col_count <= 12'd0;
+                    if ((start_gray ? 12'd0 : col_count) != cfg_width - 1)
+                        image_geometry_error <= 1'b1;
                     if (byte_eff != 2'd3)
                         image_geometry_error <= 1'b1;
 

@@ -11,6 +11,73 @@ cmake_minimum_required(VERSION 3.16)
 # Example : Adding VERBOSE=1 will pass -DVERBOSE=1 to the compiler.
 set(USER_COMPILE_DEFINITIONS
 )
+option(QR_PREVIEW_FUSED "Single-pass common preview renderer" ON)
+option(QR_PER_FRAME_LOGS "Diagnostic per-frame UART (perturbs timings)" OFF)
+option(QR_CANDIDATE_AUDIT "Diagnostic QRP1 validation and sampled candidate logs" OFF)
+option(QR_PL_GUIDED "Validated same-frame PL candidates guide bounded Geometry/ROI decode" OFF)
+option(QR_GUIDED_EARLY_DECODE "Try ECC before iterative geometry refinement (guided route only)" OFF)
+option(QR_FALLBACK_EARLY_DECODE "Try ECC before iterative refinement in the bounded full-image fallback" OFF)
+option(QR_ROUTE_AUDIT "Rate-limited slow-route geometry diagnostics" OFF)
+option(QR_FALLBACK_TEST "Diagnostic only: remove one PL candidate once per 60 frames" OFF)
+if((QR_FALLBACK_EARLY_DECODE OR QR_ROUTE_AUDIT OR QR_FALLBACK_TEST) AND NOT QR_PL_GUIDED)
+    message(FATAL_ERROR "Fallback options require the guided route")
+endif()
+set(QR_GUIDED_SEED_RADIUS_MIN "4" CACHE STRING "Minimum bounded finder seed tolerance (4..12 pixels)")
+if(NOT QR_GUIDED_SEED_RADIUS_MIN MATCHES "^(4|8|12)$")
+    message(FATAL_ERROR "Seed radius minimum must be 4, 8 or 12")
+endif()
+list(APPEND USER_COMPILE_DEFINITIONS QR_GUIDED_SEED_RADIUS_MIN=${QR_GUIDED_SEED_RADIUS_MIN})
+option(QR_PIPELINE_TRACE "Diagnostic first-observed pipeline event timestamps" OFF)
+option(QR_PINGPONG "QPP1 two-bank binary capture and independent Gray8 receiver" OFF)
+option(QR_PINGPONG_STALL_TEST "Diagnostic only: hold Gray8 CPU ownership for 120ms" OFF)
+if(QR_PINGPONG_STALL_TEST AND NOT QR_PINGPONG)
+    message(FATAL_ERROR "Stall test requires QPP1")
+endif()
+if(QR_PINGPONG AND (QR_PIPELINE_TRACE OR NOT QR_PL_GUIDED OR NOT QR_CAMERA_CLEAN_PCLK))
+    message(FATAL_ERROR "QPP1 requires guided stage4, without single-slot pipeline trace")
+endif()
+set(QR_WAIT_POLL_US "1000" CACHE STRING "Hardware wait polling interval in microseconds")
+if(NOT QR_WAIT_POLL_US MATCHES "^(100|1000)$")
+    message(FATAL_ERROR "QR_WAIT_POLL_US must be 100 or 1000")
+endif()
+list(APPEND USER_COMPILE_DEFINITIONS QR_WAIT_POLL_US=${QR_WAIT_POLL_US})
+set(QR_FRONTEND_MODE "61" CACHE STRING "Frontend diagnostic mode: 61=original, 13=no morphology, 12=adaptive only, 4=global threshold")
+if(NOT QR_FRONTEND_MODE MATCHES "^(4|12|13|61)$")
+    message(FATAL_ERROR "Unsupported frontend test profile")
+endif()
+list(APPEND USER_COMPILE_DEFINITIONS QR_HW_FRONTEND_FE_MODE=${QR_FRONTEND_MODE})
+option(QR_PREVIEW_NEON "Cortex-A9 SIMD common pixel renderer" ON)
+option(QR_PL_PREVIEW "Stage2 common autonomous genlocked preview + PL HUD" OFF)
+option(QR_CAMERA_SOURCE_SYNC "Stage3 CAM3 receiver and 24MHz camera clock" OFF)
+option(QR_CAMERA_CLEAN_PCLK "Stage4 MMCM-conditioned 24MHz returned clock" OFF)
+option(QR_CAMERA_COLORBARS "Diagnostic sensor-generated color bars (stage3 only)" OFF)
+set(QR_CAMERA_DRIVE "1" CACHE STRING "Stage3 COM2 drive: 0=1x, 1=2x, 2=3x, 3=4x")
+if(NOT QR_CAMERA_DRIVE MATCHES "^[0-3]$")
+    message(FATAL_ERROR "QR_CAMERA_DRIVE must be 0..3")
+endif()
+list(APPEND USER_COMPILE_DEFINITIONS QR_CAMERA_DRIVE=${QR_CAMERA_DRIVE})
+if(QR_CAMERA_SOURCE_SYNC AND NOT QR_PL_PREVIEW)
+    message(FATAL_ERROR "Stage3 requires autonomous PL preview")
+endif()
+if(QR_CAMERA_COLORBARS AND NOT QR_CAMERA_SOURCE_SYNC)
+    message(FATAL_ERROR "Colorbar diagnostic requires stage3")
+endif()
+if(QR_CAMERA_CLEAN_PCLK AND (NOT QR_CAMERA_SOURCE_SYNC OR NOT QR_CAMERA_CLKRC STREQUAL "128"))
+    message(FATAL_ERROR "Stage4 returned clock requires source-sync and CLKRC=128")
+endif()
+foreach(flag QR_PREVIEW_FUSED QR_PER_FRAME_LOGS QR_PL_PREVIEW QR_CAMERA_SOURCE_SYNC QR_CAMERA_COLORBARS QR_CAMERA_CLEAN_PCLK QR_CANDIDATE_AUDIT QR_PL_GUIDED QR_GUIDED_EARLY_DECODE QR_PIPELINE_TRACE QR_PINGPONG QR_PINGPONG_STALL_TEST QR_FALLBACK_EARLY_DECODE QR_ROUTE_AUDIT QR_FALLBACK_TEST)
+    if(${flag})
+        list(APPEND USER_COMPILE_DEFINITIONS ${flag}=1)
+    else()
+        list(APPEND USER_COMPILE_DEFINITIONS ${flag}=0)
+    endif()
+endforeach()
+set(QR_CAMERA_CLKRC "1" CACHE STRING "OV7670 CLKRC for qr_perf PL (0 experimental fast, 1 stable default)")
+list(APPEND USER_COMPILE_DEFINITIONS QR_CAMERA_CLKRC=${QR_CAMERA_CLKRC})
+option(QR_PERF_BLANK_TEST "Diagnostic only: decode white snapshots on frames 5-7" OFF)
+if(QR_PERF_BLANK_TEST)
+    list(APPEND USER_COMPILE_DEFINITIONS QR_PERF_BLANK_TEST=1)
+endif()
 
 # Undefine any previously specified compiler definitions, either built in or provided with a -D option
 # Example : Adding MY_SYMBOL will pass -UMY_SYMBOL to the compiler.
@@ -27,6 +94,10 @@ set(USER_UNDEFINED_SYMBOLS
 set(USER_INCLUDE_DIRECTORIES
 )
 set(USER_COMPILE_SOURCES
+"camera_stage3.c"
+"runtime_log.c"
+"video_overlay.c"
+"video_pixel_ops.c"
 "video_vdma.c"
 "stage4b_image_test.c"
 "ov7670.c"
@@ -42,6 +113,9 @@ set(USER_COMPILE_SOURCES
 "decode.c"
 "version_db.c"
 "qr_decode.c"
+"qr_candidate_geometry.c"
+"qr_pipeline_trace.c"
+"qr_pingpong.c"
 "display_ctrl/display_ctrl.c"
 "dynclk/dynclk.c"
 "hdmi_display.c"
@@ -75,7 +149,9 @@ set(USER_COMPILE_WARNINGS_INHIBIT_ALL "")
 # -----------------------------------------
 
 # Optimization level   "-O0" [None], "-O1" [Optimize] , "-O2" [Optimize More], "-O3" [Optimize Most] or "-Os" [Optimize Size]
-set(USER_COMPILE_OPTIMIZATION_LEVEL "-O0")
+set(QR_OPTIMIZATION "-O2" CACHE STRING "Application optimization (O0 only for comparison)")
+set(USER_COMPILE_OPTIMIZATION_LEVEL "${QR_OPTIMIZATION}")
+
 
 # Other flags related to optimization
 set(USER_COMPILE_OPTIMIZATION_OTHER_FLAGS "")

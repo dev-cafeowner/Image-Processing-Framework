@@ -45,6 +45,11 @@ void quirc_destroy(struct quirc *q)
 	free(q);
 }
 
+void quirc_set_progress_callback(struct quirc *q, void (*callback)(void))
+{
+	if (q) q->progress_callback = callback;
+}
+
 int quirc_resize(struct quirc *q, int w, int h)
 {
 	uint8_t		*image  = NULL;

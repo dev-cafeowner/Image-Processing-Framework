@@ -1,0 +1,22 @@
+{
+  "source": "recheck_fast_nominal_20260918_selected.json",
+  "windows": 120,
+  "accounting_valid": true,
+  "qr": 3720,
+  "guided_attempts": 3720,
+  "guided_pass": 3720,
+  "geometry_reject": 0,
+  "packet_reject": 0,
+  "fallback_attempts": 0,
+  "fallback_pass": 0,
+  "fallback_skipped": 0,
+  "early_pass": 3720,
+  "refine_attempts": 0,
+  "refine_pass": 0,
+  "proposal_average_us": 4.0,
+  "guided_average_us": 11810.65,
+  "fallback_average_us": 0,
+  "refine_average_us": 0,
+  "roi_average_pixels": 271587.2833333333,
+  "note": "Window averages have integer rounding. Bounds limit work count, not wall-clock deadlines; skipped fallbacks count as misses, never old successes."
+}

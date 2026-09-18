@@ -1211,7 +1211,7 @@
         <xilinx:taxonomy>AXI_Peripheral</xilinx:taxonomy>
       </xilinx:taxonomies>
       <xilinx:displayName>OV7670 AXI4-Stream Capture</xilinx:displayName>
-      <xilinx:coreRevision>3</xilinx:coreRevision>
+      <xilinx:coreRevision>4</xilinx:coreRevision>
       <xilinx:coreCreationDateTime>2026-07-31T02:34:23Z</xilinx:coreCreationDateTime>
     </xilinx:coreExtensions>
     <xilinx:packagingInfo>

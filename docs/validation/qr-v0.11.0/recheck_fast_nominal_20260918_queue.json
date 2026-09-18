@@ -1,0 +1,17 @@
+{
+  "windows": 120,
+  "delta_seconds": 122.91734999999996,
+  "accepted_delta": 3689,
+  "received_delta": 3689,
+  "paired_qr_delta": 3689,
+  "accepted_per_second": 30.01203654325448,
+  "paired_qr_per_second": 30.01203654325448,
+  "rearm_max_us": 3.0,
+  "prepare_max_us": 957.0,
+  "no_slot_polls": 0.0,
+  "capture_skips_delta": 0,
+  "capture_skips_total": 0,
+  "ownership_errors": 0,
+  "frame_counts_contiguous": true,
+  "note": "Rates use cumulative QUEUE deltas after first row; SUMMARY/ROUTE full-window rates are reported separately. no_slot_polls are not dropped frames."
+}

@@ -6,6 +6,9 @@
 #include "xparameters.h"
 #include "xil_cache.h"
 #include "xil_printf.h"
+#include "video_pixel_ops.h"
+#include "video_overlay.h"
+#include "xaxivdma_hw.h"
 
 
 #if defined(__GNUC__)
@@ -15,20 +18,16 @@
 #endif
 
 
-/*
- * HDMI 출력용 RGB888 framebuffer.
- *
- * DisplayCtrl은 3개의 frame pointer를 요구하지만,
- * 이번 bring-up에서는 화면 전환이 필요 없으므로
- * 세 pointer 모두 동일한 framebuffer를 가리킨다.
- *
- * 640 * 480 * 3 = 921600 bytes
- */
-static u8 hdmi_frame[HDMI_DISPLAY_FRAME_BYTES] HDMI_ALIGNED;
+/* Separate scanout, pending and CPU-render buffers. Never modify a buffer
+ * currently being read OR already scheduled for the next vertical boundary. */
+#if !QR_PL_PREVIEW
+static u8 hdmi_frame[DISPLAY_NUM_FRAMES][HDMI_DISPLAY_FRAME_BYTES] HDMI_ALIGNED;
+#endif
+static u32 hdmi_requested_frame;
 
 
 /*
- * Digilent DisplayCtrl은 DISPLAY_NUM_FRAMES == 3.
+ * Use the display controller's configured frame count (4 in this project).
  */
 static u8 *hdmi_frames[DISPLAY_NUM_FRAMES];
 
@@ -69,9 +68,8 @@ int hdmi_display_init(
     );
 
 
-    /*
-     * Initial screen = black.
-     */
+#if !QR_PL_PREVIEW
+    /* Initial screen = black; autonomous mode never writes capture stores. */
     memset(
         hdmi_frame,
         0,
@@ -81,20 +79,24 @@ int hdmi_display_init(
 
     Xil_DCacheFlushRange(
         (INTPTR)hdmi_frame,
-        HDMI_DISPLAY_FRAME_BYTES
+        sizeof(hdmi_frame)
     );
+#else
+    if (video_overlay_init() != XST_SUCCESS) return XST_FAILURE;
+#endif
 
 
-    /*
-     * For this bring-up all three hardware display stores
-     * use the same static framebuffer.
-     */
+    hdmi_requested_frame = 0U;
+    hdmi->render_frame = -1;
     for (i = 0U;
          i < DISPLAY_NUM_FRAMES;
          ++i) {
 
-        hdmi_frames[i] =
-            hdmi_frame;
+#if QR_PL_PREVIEW
+        hdmi_frames[i] = (u8 *)video_vdma_frame_addr(i);
+#else
+        hdmi_frames[i] = hdmi_frame[i];
+#endif
     }
 
 
@@ -123,7 +125,7 @@ int hdmi_display_init(
 
     xil_printf(
         "[HDMI] FB     : 0x%08x\r\n",
-        (unsigned int)(UINTPTR)hdmi_frame
+        (unsigned int)(UINTPTR)hdmi_frames[0]
     );
 
 
@@ -178,6 +180,10 @@ int hdmi_display_init(
      * DisplayInitialize defaults to VMODE_640x480.
      * Start VTC + DynClk + VDMA MM2S.
      */
+#if QR_PL_PREVIEW
+    hdmi->display.autoGenlock = 1;
+    hdmi->display.vdmaConfig.EnableSync = 1;
+#endif
     status =
         DisplayStart(
             &hdmi->display
@@ -197,6 +203,14 @@ int hdmi_display_init(
 
     hdmi->initialized =
         1;
+#if QR_PL_PREVIEW
+    /* RS + circular + genlock enable + internal source must all be set. */
+    if ((XAxiVdma_ReadReg(video_vdma->baseaddr, XAXIVDMA_CR_OFFSET) & 0x8BU) != 0x8BU) {
+        hdmi->initialized = 0;
+        return XST_FAILURE;
+    }
+#endif
+    hdmi_requested_frame = hdmi->display.curFrame;
 
 
     xil_printf(
@@ -220,56 +234,61 @@ int hdmi_display_show_gray8(
     const u8 *gray
 )
 {
-    u32 pixel;
+    u8 *destination;
+    if (!gray) return XST_FAILURE;
+    destination = hdmi_display_begin_frame(hdmi);
+    if (!destination) return XST_FAILURE;
+    video_gray8_to_rgb888(destination, gray,
+                         HDMI_DISPLAY_WIDTH * HDMI_DISPLAY_HEIGHT);
+    return hdmi_display_commit_frame(hdmi);
+}
 
+u8 *hdmi_display_begin_frame(hdmi_display_t *hdmi)
+{
+#if QR_PL_PREVIEW
+    (void)hdmi;
+    return NULL; /* Capture/scanout stores are exclusively owned by VDMA. */
+#else
+    u32 index, reading;
+    if (!hdmi || !hdmi->initialized || hdmi->render_frame >= 0) return NULL;
+    reading = (u32)XAxiVdma_CurrFrameStore(hdmi->display.vdma, XAXIVDMA_READ);
+    if (reading >= DISPLAY_NUM_FRAMES) return NULL;
+    for (index = 0; index < DISPLAY_NUM_FRAMES; ++index) {
+        if (index != reading && index != hdmi_requested_frame) {
+            hdmi->render_frame = (int)index;
+            return hdmi_frame[index];
+        }
+    }
+    return NULL;
+#endif
+}
 
-    if ((hdmi == NULL) ||
-        (gray == NULL) ||
-        (hdmi->initialized == 0)) {
+void hdmi_display_cancel_frame(hdmi_display_t *hdmi)
+{
+    if (hdmi) hdmi->render_frame = -1;
+}
 
+int hdmi_display_commit_frame(hdmi_display_t *hdmi)
+{
+#if QR_PL_PREVIEW
+    (void)hdmi;
+    return XST_FAILURE;
+#else
+    u32 index, reading;
+    int status;
+    if (!hdmi || !hdmi->initialized || hdmi->render_frame < 0)
         return XST_FAILURE;
-    }
-
-
-    for (pixel = 0U;
-         pixel < (HDMI_DISPLAY_WIDTH *
-                  HDMI_DISPLAY_HEIGHT);
-         ++pixel) {
-
-        const u8 value =
-            gray[pixel];
-
-        const u32 dst =
-            pixel * HDMI_DISPLAY_BYTES_PER_PIXEL;
-
-
-        hdmi_frame[dst + 0U] =
-            value;
-
-        hdmi_frame[dst + 1U] =
-            value;
-
-        hdmi_frame[dst + 2U] =
-            value;
-    }
-
-
-    /*
-     * CPU generated the framebuffer.
-     * Flush cache so VDMA MM2S sees the new pixels.
-     */
-    Xil_DCacheFlushRange(
-        (INTPTR)hdmi_frame,
-        HDMI_DISPLAY_FRAME_BYTES
-    );
-
-
-    xil_printf(
-        "[PASS] Gray8 copied to HDMI framebuffer\r\n"
-    );
-
-
-    return XST_SUCCESS;
+    index = (u32)hdmi->render_frame;
+    hdmi->render_frame = -1;
+    reading = (u32)XAxiVdma_CurrFrameStore(hdmi->display.vdma, XAXIVDMA_READ);
+    if (index >= DISPLAY_NUM_FRAMES || reading >= DISPLAY_NUM_FRAMES ||
+        index == reading || index == hdmi_requested_frame)
+        return XST_FAILURE;
+    Xil_DCacheFlushRange((INTPTR)hdmi_frame[index], HDMI_DISPLAY_FRAME_BYTES);
+    status = DisplayChangeFrame(&hdmi->display, index);
+    if (status == XST_SUCCESS) hdmi_requested_frame = index;
+    return status;
+#endif
 }
 
 
@@ -279,5 +298,5 @@ int hdmi_display_show_gray8(
 
 UINTPTR hdmi_display_frame_addr(void)
 {
-    return (UINTPTR)hdmi_frame;
+    return (UINTPTR)hdmi_frames[hdmi_requested_frame];
 }

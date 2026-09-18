@@ -1,0 +1,1 @@
+#define XAXIDMA_ERR_ALL_MASK 0x770U

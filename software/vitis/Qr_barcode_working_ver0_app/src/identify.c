@@ -288,19 +288,17 @@ static void flood_fill_seed(struct quirc *q,
  * Adaptive thresholding
  */
 
-static uint8_t otsu(const struct quirc *q)
+static uint8_t otsu_region(const struct quirc *q, int x0, int y0, int x1, int y1)
 {
-	unsigned int numPixels = q->w * q->h;
+	unsigned int numPixels = (x1 - x0) * (y1 - y0);
 
 	// Calculate histogram
 	unsigned int histogram[UINT8_MAX + 1];
 	(void)memset(histogram, 0, sizeof(histogram));
-	uint8_t* ptr = q->image;
-	unsigned int length = numPixels;
-	while (length--) {
-		uint8_t value = *ptr++;
-		histogram[value]++;
-	}
+	int x, y;
+	for (y = y0; y < y1; ++y)
+		for (x = x0; x < x1; ++x)
+			histogram[q->image[y * q->w + x]]++;
 
 	// Calculate weighted sum of histogram values
 	quirc_float_t sum = (quirc_float_t)0;
@@ -531,7 +529,9 @@ static void test_capstone(struct quirc *q, unsigned int x, unsigned int y,
 	record_capstone(q, ring_left, stone);
 }
 
-static void finder_scan(struct quirc *q, unsigned int y)
+static void finder_scan_region(struct quirc *q, unsigned int y,
+                               unsigned int start, unsigned int end,
+                               const struct quirc_finder_seed *seed)
 {
 	quirc_pixel_t *row = q->pixels + y * q->w;
 	unsigned int x;
@@ -541,10 +541,10 @@ static void finder_scan(struct quirc *q, unsigned int y)
 	unsigned int pb[5];
 
 	memset(pb, 0, sizeof(pb));
-	for (x = 0; x < q->w; x++) {
+	for (x = start; x < end; x++) {
 		int color = row[x] ? 1 : 0;
 
-		if (x && color != last_color) {
+		if (x != start && color != last_color) {
 			memmove(pb, pb + 1, sizeof(pb[0]) * 4);
 			pb[4] = run_length;
 			run_length = 0;
@@ -565,6 +565,10 @@ static void finder_scan(struct quirc *q, unsigned int y)
 					    pb[i] * scale > check[i] * avg + err)
 						ok = 0;
 
+				/* A PL centroid is a search hint, never a fabricated corner. */
+				if (ok && seed && abs((int)x - (int)pb[4] - (int)pb[3] -
+				                    (int)pb[2] / 2 - seed->x) > seed->radius)
+					ok = 0;
 				if (ok)
 					test_capstone(q, x, y, pb);
 			}
@@ -847,7 +851,7 @@ static void jiggle_perspective(struct quirc *q, int index)
  * chosen, we call this function to set up a grid-reading perspective
  * transform.
  */
-static void setup_qr_perspective(struct quirc *q, int index)
+static void setup_qr_perspective(struct quirc *q, int index, int refine)
 {
 	struct quirc_grid *qr = &q->grids[index];
 	struct quirc_point rect[4];
@@ -862,7 +866,7 @@ static void setup_qr_perspective(struct quirc *q, int index)
 	       sizeof(rect[0]));
 	perspective_setup(qr->c, rect, qr->grid_size - 7, qr->grid_size - 7);
 
-	jiggle_perspective(q, index);
+	if (refine) jiggle_perspective(q, index);
 }
 
 /* Rotate the capstone with so that corner 0 is the leftmost with respect
@@ -896,7 +900,7 @@ static void rotate_capstone(struct quirc_capstone *cap,
 	perspective_setup(cap->c, cap->corners, 7.0, 7.0);
 }
 
-static void record_qr_grid(struct quirc *q, int a, int b, int c)
+static void record_qr_grid(struct quirc *q, int a, int b, int c, int refine)
 {
 	struct quirc_point h0, hd;
 	int i;
@@ -988,7 +992,7 @@ static void record_qr_grid(struct quirc *q, int a, int b, int c)
 		}
 	}
 
-	setup_qr_perspective(q, qr_index);
+	setup_qr_perspective(q, qr_index, refine);
 	return;
 
 fail:
@@ -1012,7 +1016,7 @@ struct neighbour_list {
 
 static void test_neighbours(struct quirc *q, int i,
 			    const struct neighbour_list *hlist,
-			    const struct neighbour_list *vlist)
+			    const struct neighbour_list *vlist, int refine)
 {
 	/* Test each possible grouping */
 	for (int j = 0; j < hlist->count; j++) {
@@ -1021,12 +1025,12 @@ static void test_neighbours(struct quirc *q, int i,
 			const struct neighbour *vn = &vlist->n[k];
 			quirc_float_t squareness = fabs((quirc_float_t)1.0 - hn->distance / vn->distance);
 			if (squareness < (quirc_float_t)0.2)
-				record_qr_grid(q, hn->index, i, vn->index);
+				record_qr_grid(q, hn->index, i, vn->index, refine);
 		}
 	}
 }
 
-static void test_grouping(struct quirc *q, unsigned int i)
+static void test_grouping(struct quirc *q, unsigned int i, int refine)
 {
 	struct quirc_capstone *c1 = &q->capstones[i];
 	int j;
@@ -1069,7 +1073,7 @@ static void test_grouping(struct quirc *q, unsigned int i)
 	if (!(hlist.count && vlist.count))
 		return;
 
-	test_neighbours(q, i, &hlist, &vlist);
+	test_neighbours(q, i, &hlist, &vlist, refine);
 }
 
 static void pixels_setup(struct quirc *q, uint8_t threshold)
@@ -1101,18 +1105,97 @@ uint8_t *quirc_begin(struct quirc *q, int *w, int *h)
 	return q->image;
 }
 
-void quirc_end(struct quirc *q)
+void quirc_end_unseeded(struct quirc *q, int refine)
 {
 	int i;
 
-	uint8_t threshold = otsu(q);
+	uint8_t threshold = otsu_region(q, 0, 0, q->w, q->h);
 	pixels_setup(q, threshold);
 
-	for (i = 0; i < q->h; i++)
-		finder_scan(q, i);
+	for (i = 0; i < q->h; i++) {
+		if ((i & 31) == 0 && q->progress_callback) q->progress_callback();
+		finder_scan_region(q, i, 0, q->w, NULL);
+	}
 
 	for (i = 0; i < q->num_capstones; i++)
-		test_grouping(q, i);
+		test_grouping(q, i, refine);
+}
+
+void quirc_end(struct quirc *q)
+{
+	quirc_end_unseeded(q, 1);
+}
+
+int quirc_end_seeded(struct quirc *q, const struct quirc_seeded_roi *roi, int refine)
+{
+	int i, x, y, matched[3] = {-1, -1, -1};
+	uint8_t threshold;
+	if (!q || !roi) return 0;
+	q->num_grids = 0;
+	if (roi->x0 < 0 || roi->y0 < 0 || roi->x1 > q->w || roi->y1 > q->h ||
+	    roi->x0 >= roi->x1 || roi->y0 >= roi->y1 ||
+	    roi->search_half_width < 1 || roi->search_half_width > q->w)
+		return 0;
+	for (i = 0; i < 3; ++i) {
+		const struct quirc_finder_seed *s = &roi->seed[i];
+		if (s->x < roi->x0 || s->x >= roi->x1 || s->y < roi->y0 ||
+		    s->y >= roi->y1 || s->radius < 1 || s->radius > 12) return 0;
+	}
+	/* Histogram is complete before writing pixels: image and pixels may alias.
+	 * Keep original stride/coordinates; white outside ROI bounds flood fills. */
+	threshold = otsu_region(q, roi->x0, roi->y0, roi->x1, roi->y1);
+	if (QUIRC_PIXEL_ALIAS_IMAGE) q->pixels = (quirc_pixel_t *)q->image;
+	for (y = 0; y < q->h; ++y) {
+		quirc_pixel_t *dst = q->pixels + y * q->w;
+		if (y < roi->y0 || y >= roi->y1) {
+			memset(dst, 0, q->w * sizeof(*dst));
+			continue;
+		}
+		memset(dst, 0, roi->x0 * sizeof(*dst));
+		for (x = roi->x0; x < roi->x1; ++x)
+			dst[x] = q->image[y * q->w + x] < threshold ? QUIRC_PIXEL_BLACK : QUIRC_PIXEL_WHITE;
+		memset(dst + roi->x1, 0, (q->w - roi->x1) * sizeof(*dst));
+	}
+	for (i = 0; i < 3; ++i) {
+		const struct quirc_finder_seed *s = &roi->seed[i];
+		int step, c, start = s->x - roi->search_half_width;
+		int end = s->x + roi->search_half_width + 1;
+		if (start < roi->x0) start = roi->x0;
+		if (end > roi->x1) end = roi->x1;
+		if (q->progress_callback) q->progress_callback();
+		for (step = 0; step <= 2 * s->radius && matched[i] < 0; ++step) {
+			y = s->y + (step & 1 ? (step + 1) / 2 : -step / 2);
+			if (y < roi->y0 || y >= roi->y1) continue;
+			finder_scan_region(q, y, start, end, s);
+			for (c = 0; c < q->num_capstones; ++c) {
+				const struct quirc_point *p = &q->capstones[c].center;
+				if (abs(p->x - s->x) <= s->radius && abs(p->y - s->y) <= s->radius) {
+					matched[i] = c;
+					break;
+				}
+			}
+		}
+		if (matched[i] < 0) return 0;
+		for (c = 0; c < i; ++c) if (matched[c] == matched[i]) return 0;
+	}
+	/* Refined real capstone corners feed the existing timing/alignment/grid
+	 * geometry. Payload and ECC checks remain unchanged. */
+	{
+		const struct quirc_point *a = &q->capstones[matched[0]].center;
+		const struct quirc_point *b = &q->capstones[matched[1]].center;
+		const struct quirc_point *c = &q->capstones[matched[2]].center;
+		double dx = b->x - a->x, dy = b->y - a->y;
+		double ex = c->x - a->x, ey = c->y - a->y;
+		double aa = dx*dx + dy*dy, bb = ex*ex + ey*ey, dot = dx*ex + dy*ey;
+		if (aa < 24*24 || bb < 24*24 || dot*dot > 0.36*aa*bb) return 0;
+	}
+	record_qr_grid(q, matched[1], matched[0], matched[2], refine);
+	return q->num_grids;
+}
+
+void quirc_refine_grid(struct quirc *q, int index)
+{
+	if (q && index >= 0 && index < q->num_grids) jiggle_perspective(q, index);
 }
 
 void quirc_extract(const struct quirc *q, int index,

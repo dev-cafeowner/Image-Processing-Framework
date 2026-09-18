@@ -101,6 +101,8 @@ struct quirc_flood_fill_vars {
 };
 
 struct quirc {
+	/* Optional cooperative service; must not re-enter or modify this decoder. */
+	void (*progress_callback)(void);
 	uint8_t			*image;
 	quirc_pixel_t		*pixels;
 	int			w;

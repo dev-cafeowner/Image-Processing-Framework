@@ -1,9 +1,11 @@
 #include "ov7670.h"
+#include <string.h>
 
 #include "sleep.h"
 
 #include "xil_printf.h"
 #include "xstatus.h"
+#include "xiicps_hw.h"
 
 
 /* ============================================================================
@@ -169,6 +171,13 @@ static void ov7670_sccb_recover(
         &camera->iic
     );
 
+    /* Abort writes CR_RESET_VALUE, including the SCLK divider fields.
+     * Restore the requested SCCB rate even if Abort already freed the bus;
+     * otherwise retries run at the controller's reset (much faster) rate. */
+    if (XIicPs_SetSClk(&camera->iic, g_ov7670_sccb_clock_hz) != XST_SUCCESS) {
+        xil_printf("[WARN] SCCB clock restore after Abort failed\r\n");
+    }
+
 
     usleep(
         OV7670_SCCB_RECOVERY_DELAY_US
@@ -253,6 +262,13 @@ int ov7670_init(
     }
 
 
+    /* XIicPs_CfgInitialize in this BSP does not initialize Is10BitAddr.
+     * A stack-allocated handle can otherwise silently select 10-bit transfers
+     * after optimization changes the stack layout. OV7670 uses 7-bit 0x21. */
+    memset(camera, 0, sizeof(*camera));
+    camera->iic_baseaddr = baseaddr;
+    camera->sccb_clock_hz = sccb_clock_hz;
+
     g_ov7670_sccb_clock_hz =
         sccb_clock_hz;
 
@@ -292,6 +308,9 @@ int ov7670_init(
         return status;
     }
 
+
+    status = XIicPs_SetOptions(&camera->iic, XIICPS_7_BIT_ADDR_OPTION);
+    if (status != XST_SUCCESS) return status;
 
     status =
         XIicPs_SetSClk(
@@ -409,6 +428,11 @@ int ov7670_write_reg(
                 status,
                 (unsigned int)attempt
             );
+            xil_printf("[SCCB DIAG] base=%08x cr=%08x isr=%08x clk=%u data=%02x,%02x\r\n",
+                (u32)camera->iic.Config.BaseAddress,
+                XIicPs_ReadReg(camera->iic.Config.BaseAddress, XIICPS_CR_OFFSET),
+                XIicPs_ReadReg(camera->iic.Config.BaseAddress, XIICPS_ISR_OFFSET),
+                XIicPs_GetSClk(&camera->iic), buffer[0], buffer[1]);
 
 
             ov7670_sccb_recover(

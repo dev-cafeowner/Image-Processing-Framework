@@ -89,6 +89,7 @@ typedef struct {
 		u32 stride; /* The line stride of the framebuffers, in bytes */
 		double pxlFreq; /* Frequency of clock currently being generated */
 		u32 curFrame; /* Current frame being displayed */
+		int autoGenlock; /* Common live preview; hardware owns buffer selection. */
 		DisplayState state; /* Indicates if the Display is currently running */
 } DisplayCtrl;
 
