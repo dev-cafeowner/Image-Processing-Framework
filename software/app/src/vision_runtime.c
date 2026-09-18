@@ -22,7 +22,7 @@
 #include "qr_dma.h"
 #include "qr_hw_config.h"
 #include "qr_perf.h"
-#if QR_PINGPONG
+#if QR_FRAME_RECEIVER
 #include "frame_receiver.h"
 #endif
 
@@ -98,7 +98,7 @@ static void runtime_pipeline_observe(void)
  * ========================================================================== */
 
 /*
- * Exact-Sync Gray8 image
+ * Frame-aligned Gray8 image
  *
  * 640 x 480 x 1 byte
  * = 307200 bytes
@@ -297,7 +297,7 @@ static void runtime_report_window(XTime now, u32 cycle_us, u32 qr_us,
 #if QR_PIPELINE_TRACE
     qr_pipeline_report();
 #endif
-#if QR_PINGPONG
+#if QR_FRAME_RECEIVER
     frame_receiver_report(Xil_In32(QR_HW_RUNTIME_BASEADDR + QR_CSR_DROP_COUNT));
 #endif
     xil_printf("[RENDER] preview=%lu invalidate_avg_us=%lu convert_avg_us=%lu ui_avg_us=%lu commit_avg_us=%lu\r\n",
@@ -345,7 +345,7 @@ static int runtime_wait_dma(
 
 
     while (qr_dma_s2mm_busy(dma)) {
-#if QR_PINGPONG
+#if QR_FRAME_RECEIVER
         if (frame_receiver_failed()) return XST_FAILURE;
 #endif
 
@@ -455,7 +455,7 @@ static int runtime_wait_status_set(
         runtime_pipeline_observe();
 #endif
 
-#if QR_PINGPONG
+#if QR_FRAME_RECEIVER
         if (frame_receiver_failed()) return XST_FAILURE;
 #endif
         if ((status & mask) != 0U) {
@@ -599,7 +599,7 @@ static int runtime_wait_status_clear(
  * Arm Gray8 Image DMA
  * ========================================================================== */
 
-#if !QR_PINGPONG
+#if !QR_FRAME_RECEIVER
 static int runtime_arm_image_dma(
     qr_dma_s2mm_t *image_dma
 )
@@ -1408,7 +1408,7 @@ static void runtime_draw_ui(
  * conservatively reject even a one-slot writer advance during the CPU copy. */
 static void runtime_preview_service(void)
 {
-#if QR_PINGPONG
+#if QR_FRAME_RECEIVER
     frame_receiver_service();
 #endif
 #if QR_PIPELINE_TRACE
@@ -1958,7 +1958,7 @@ int vision_runtime_run(void)
      * Must be armed BEFORE runtime and camera producer.
      * ====================================================================== */
 
-#if QR_PINGPONG
+#if QR_FRAME_RECEIVER
     status = frame_receiver_init(&image_dma, &image_buffers[0][0], QR_HW_IMAGE_BYTES);
 #else
     status = runtime_arm_image_dma(&image_dma);
@@ -2036,8 +2036,8 @@ int vision_runtime_run(void)
     memset(&perf_window, 0, sizeof(perf_window));
     perf_window.since = qr_perf_now();
 #if QR_CAMERA_SOURCE_SYNC
-#if QR_CAMERA_CLEAN_PCLK
-    xil_printf("[BUILD] vision_app pl_preview=1 source_sync=1 clean_pclk=1 camera_clkrc=%lu colorbars=%lu; VIDEO scan_sof includes repeats\r\n", (u32)QR_CAMERA_CLKRC, (u32)QR_CAMERA_COLORBARS);
+#if QR_CAMERA_CONDITIONED_PCLK
+    xil_printf("[BUILD] vision_app pl_preview=1 source_sync=1 conditioned_pclk=1 camera_clkrc=%lu colorbars=%lu; VIDEO scan_sof includes repeats\r\n", (u32)QR_CAMERA_CLKRC, (u32)QR_CAMERA_COLORBARS);
 #else
     xil_printf("[BUILD] vision_app pl_preview=1 source_sync=1 camera_clkrc=%lu colorbars=%lu; VIDEO scan_sof includes repeats\r\n", (u32)QR_CAMERA_CLKRC, (u32)QR_CAMERA_COLORBARS);
 #endif
@@ -2093,7 +2093,7 @@ int vision_runtime_run(void)
         /* Both processing paths now share the accepted camera SOF.
          * Disabling future snapshot SOFs does not abort the active image.
          * Keep the camera/RGB888 preview running while software decodes. */
-#if !QR_PINGPONG
+#if !QR_FRAME_RECEIVER
         qr_csr_set_persistent(&csr,
             QR_CTRL_PERSISTENT_DEFAULT & ~QR_CTRL_IMAGE_CAPTURE_ENABLE);
 #endif
@@ -2211,7 +2211,7 @@ int vision_runtime_run(void)
          * E. Wait Exact Gray8 Image DMA
          * ================================================================== */
 
-#if QR_PINGPONG
+#if QR_FRAME_RECEIVER
         // The hardware result is dispatched only after this frame's image EOF.
         // The receiver may already be DMA-writing the OTHER slot by now.
         status = frame_receiver_take(qr_csr_read(&csr, QR_CSR_IMAGE_FRAME_ID), &completed_image);
@@ -2231,7 +2231,7 @@ int vision_runtime_run(void)
          * DMA -> CPU ownership.
          */
         PIPE_MARK(QR_PIPE_IDMA);
-#if !QR_PINGPONG
+#if !QR_FRAME_RECEIVER
         completed_image = image_buffers[image_write_slot];
 #endif
         Xil_DCacheInvalidateRange(
@@ -2248,7 +2248,7 @@ int vision_runtime_run(void)
          * The CPU owns completed_image; the next DMA will use the OTHER slot.
          * Never re-arm DMA onto memory still being decoded. */
         /* ====================================================================
-         * J. Wait Exact-Sync current frame complete
+         * J. Wait Frame-aligned current frame complete
          * ================================================================== */
 
         status =
@@ -2400,7 +2400,7 @@ int vision_runtime_run(void)
          * - No next frame active
          * ================================================================== */
 
-#if !QR_PINGPONG
+#if !QR_FRAME_RECEIVER
         qr_csr_pulse(&csr, QR_CTRL_ERROR_CLEAR);
         usleep(100U);
 #endif
@@ -2443,7 +2443,7 @@ int vision_runtime_run(void)
 
         /* Capture frame N+1 while CPU decodes immutable frame N. The tap's
          * in-flight reservation blocks any further SOF until the next ACK. */
-#if QR_PINGPONG
+#if QR_FRAME_RECEIVER
         if (frame_receiver_failed()) return XST_FAILURE;
         // Old consumer is fully released. Grant one new descriptor, independent
         // of physical capture credit; never let a new result mask release checks.
@@ -2473,7 +2473,7 @@ int vision_runtime_run(void)
             xil_printf("[TEST] White QR snapshot n=%lu; live preview unchanged\r\n", frame_count);
         }
 #endif
-#if QR_PINGPONG_STALL_TEST
+#if QR_FRAME_RECEIVER_STALL_TEST
         if(frame_count>=5U && frame_count<=7U) {
             u32 before=2166136261U,after=2166136261U,p;
             XTime stall_start;
@@ -2515,7 +2515,7 @@ int vision_runtime_run(void)
             );
 #endif
         perf_qr_end = qr_perf_now();
-#if QR_PINGPONG
+#if QR_FRAME_RECEIVER
         if (frame_receiver_release() != XST_SUCCESS) return XST_FAILURE;
 #endif
         perf_preview_during = preview_service_ticks - perf_preview_before;

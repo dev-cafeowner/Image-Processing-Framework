@@ -11,7 +11,7 @@
  *   - final_processing_done 이후 frontend frame release
  *
  * NOTE
- *   final_processing_done은 최종 Exact-Sync 구조에서
+ *   final_processing_done은 최종 Frame-aligned 구조에서
  *   packet_tx_done이 아니라 qr_frame_completion_ctrl의
  *   frame_complete에 연결된다.
  * ============================================================================
@@ -216,7 +216,7 @@ module qr_frame_ctrl_runtime #(
                 /*
                  * frontend에게 현재 frame 사용 완료 통보.
                  *
-                 * Exact-Sync에서는 final_processing_done 자체가
+                 * Frame-aligned에서는 final_processing_done 자체가
                  * PS FRAME_ACK 이후에만 들어오므로,
                  * 여기서는 별도의 ACK 판단을 하지 않는다.
                  */

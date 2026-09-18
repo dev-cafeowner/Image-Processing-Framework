@@ -1,12 +1,12 @@
 `timescale 1ns/1ps
-module ov7670_clean_pclk_rx_tb;
+module ov7670_clocked_receiver_tb;
     parameter W=64, H=8, DEPTH=512;
     reg clk=0; always #8 clk=~clk;
     real halfp=20.833333;
     reg pclk=0; always #(halfp) pclk=~pclk;
     reg resetn=0, href=0, vsync=0, en=0, clear=0;
-    wire clean_pclk, clean_locked;
-    ov7670_pclk_clean_clock conditioner (.pclk_in(pclk),.enable(resetn),.pclk_out(clean_pclk),.locked(clean_locked));
+    wire conditioned_pclk, conditioner_locked;
+    ov7670_pclk_conditioner conditioner (.pclk_in(pclk),.enable(resetn),.pclk_out(conditioned_pclk),.locked(conditioner_locked));
     reg [7:0] data=0;
     reg ready=1, force_stall=0, score=1;
     reg [31:0] random_bits=32'hb1234abc;
@@ -14,7 +14,7 @@ module ov7670_clean_pclk_rx_tb;
     wire valid,sof,eol,busy;
     wire [31:0] status,fifo_status,pc,fc,px,lost,bad,period,maxperiod;
     ov7670_pclk_rx #(.FIFO_DEPTH(DEPTH),.EXPECTED_WIDTH(W)) dut (
-        .aclk(clk),.aresetn(resetn && clean_locked),.pclk(clean_pclk),.cam_href(href),.cam_vsync(vsync),.cam_data(data),
+        .aclk(clk),.aresetn(resetn && conditioner_locked),.pclk(conditioned_pclk),.cam_href(href),.cam_vsync(vsync),.cam_data(data),
         .capture_en(en),.stat_clear(clear),.clear_busy(busy),
         .m_axis_tdata(pixel),.m_axis_tvalid(valid),.m_axis_tready(ready),.m_axis_tuser(sof),.m_axis_tlast(eol),
         .cam_status(status),.fifo_status(fifo_status),.pclk_count(pc),.lost_tokens(lost),
@@ -61,7 +61,7 @@ module ov7670_clean_pclk_rx_tb;
         @(negedge clk); resetn=0; en=0; force_stall=0; href=0; vsync=0;
         repeat(40) @(negedge pclk);
         queued=0; seen=0;
-        resetn=1; wait(clean_locked); #10000;
+        resetn=1; wait(conditioner_locked); #10000;
         repeat(80) token(0,0,0);
     endtask
     task check_done;
@@ -109,6 +109,6 @@ module ov7670_clean_pclk_rx_tb;
     initial begin #200000000; $fatal(1,"Timeout"); end
 endmodule
 
-module ov7670_clean_pclk_rx_vga_tb;
-    ov7670_clean_pclk_rx_tb #(.W(640),.H(480),.DEPTH(4096)) test();
+module ov7670_clocked_receiver_vga_tb;
+    ov7670_clocked_receiver_tb #(.W(640),.H(480),.DEPTH(4096)) test();
 endmodule

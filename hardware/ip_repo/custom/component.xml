@@ -220,7 +220,7 @@
         <spirit:parameters>
           <spirit:parameter>
             <spirit:name>viewChecksum</spirit:name>
-            <spirit:value>7e9eda55</spirit:value>
+            <spirit:value>fa7d7b3b</spirit:value>
           </spirit:parameter>
         </spirit:parameters>
       </spirit:view>
@@ -236,7 +236,7 @@
         <spirit:parameters>
           <spirit:parameter>
             <spirit:name>viewChecksum</spirit:name>
-            <spirit:value>7e9eda55</spirit:value>
+            <spirit:value>fa7d7b3b</spirit:value>
           </spirit:parameter>
         </spirit:parameters>
       </spirit:view>
@@ -250,7 +250,7 @@
         <spirit:parameters>
           <spirit:parameter>
             <spirit:name>viewChecksum</spirit:name>
-            <spirit:value>f92e9879</spirit:value>
+            <spirit:value>f64a5dae</spirit:value>
           </spirit:parameter>
         </spirit:parameters>
       </spirit:view>
@@ -871,7 +871,7 @@
     <spirit:fileSet>
       <spirit:name>xilinx_anylanguagesynthesis_view_fileset</spirit:name>
       <spirit:file>
-        <spirit:name>src/qr_runlength_vcc_core_rv56_fix.v</spirit:name>
+        <spirit:name>src/qr_runlength_vcc_core.v</spirit:name>
         <spirit:fileType>verilogSource</spirit:fileType>
         <spirit:userFileType>IMPORTED_FILE</spirit:userFileType>
       </spirit:file>
@@ -883,14 +883,14 @@
       <spirit:file>
         <spirit:name>src/qr_vcc_frontend_ip_top.v</spirit:name>
         <spirit:fileType>verilogSource</spirit:fileType>
-        <spirit:userFileType>CHECKSUM_b7f4f568</spirit:userFileType>
+        <spirit:userFileType>CHECKSUM_045a851f</spirit:userFileType>
         <spirit:userFileType>IMPORTED_FILE</spirit:userFileType>
       </spirit:file>
     </spirit:fileSet>
     <spirit:fileSet>
       <spirit:name>xilinx_anylanguagebehavioralsimulation_view_fileset</spirit:name>
       <spirit:file>
-        <spirit:name>src/qr_runlength_vcc_core_rv56_fix.v</spirit:name>
+        <spirit:name>src/qr_runlength_vcc_core.v</spirit:name>
         <spirit:fileType>verilogSource</spirit:fileType>
         <spirit:userFileType>IMPORTED_FILE</spirit:userFileType>
       </spirit:file>
@@ -938,13 +938,13 @@
       </xilinx:taxonomies>
       <xilinx:displayName>QR Run-Length VCC Frontend IP</xilinx:displayName>
       <xilinx:definitionSource>package_project</xilinx:definitionSource>
-      <xilinx:coreRevision>4</xilinx:coreRevision>
-      <xilinx:coreCreationDateTime>2026-08-04T22:17:10Z</xilinx:coreCreationDateTime>
+      <xilinx:coreRevision>5</xilinx:coreRevision>
+      <xilinx:coreCreationDateTime>2026-09-18T02:21:25Z</xilinx:coreCreationDateTime>
     </xilinx:coreExtensions>
     <xilinx:packagingInfo>
       <xilinx:xilinxVersion>2024.2</xilinx:xilinxVersion>
       <xilinx:checksum xilinx:scope="busInterfaces" xilinx:value="63c340ae"/>
-      <xilinx:checksum xilinx:scope="fileGroups" xilinx:value="d26f90da"/>
+      <xilinx:checksum xilinx:scope="fileGroups" xilinx:value="28ac8ab8"/>
       <xilinx:checksum xilinx:scope="ports" xilinx:value="89a1bf86"/>
       <xilinx:checksum xilinx:scope="parameters" xilinx:value="81a02c50"/>
     </xilinx:packagingInfo>

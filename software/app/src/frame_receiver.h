@@ -1,5 +1,5 @@
-#ifndef QR_PINGPONG_H
-#define QR_PINGPONG_H
+#ifndef QR_FRAME_RECEIVER_H
+#define QR_FRAME_RECEIVER_H
 #include "qr_dma.h"
 int frame_receiver_init(qr_dma_s2mm_t *dma, u8 *buffers, u32 bytes);
 void frame_receiver_service(void);

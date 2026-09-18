@@ -2,9 +2,9 @@
 
 /*
  * ============================================================================
- * Module : qr_runtime_exact_slave_lite_v1_0_S00_AXI
+ * Module : qr_runtime_slave_lite_v1_0_S00_AXI
  *
- * AXI4-Lite transport shell for qr_runtime_exact.
+ * AXI4-Lite transport shell for qr_runtime.
  *
  * This module intentionally does NOT implement the QR register semantics.
  * It converts AXI4-Lite transactions into a small internal CSR bus:
@@ -22,7 +22,7 @@
  * ============================================================================
  */
 
-module qr_runtime_exact_slave_lite_v1_0_S00_AXI #(
+module qr_runtime_slave_lite_v1_0_S00_AXI #(
     parameter integer C_S_AXI_DATA_WIDTH = 32,
     parameter integer C_S_AXI_ADDR_WIDTH = 6
 )(

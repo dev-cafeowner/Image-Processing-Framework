@@ -25,33 +25,33 @@ static unsigned g_slow_audit_countdown;
  * ========================================================================== */
 
 /*
- * 0 : final / fast runtime
+ * 0 : normal runtime logging
  * 1 : detailed quirc debug
  */
 #define QR_DECODE_VERBOSE               0
 
 
 /*
- * Fast-path binary threshold.
+ * Primary binary-scan threshold.
  *
  * This value is expressed in normalized 0~255 space.
  */
-#define QR_FAST_THRESHOLD_NORM          160U
+#define QR_PRIMARY_THRESHOLD_NORM          160U
 
 
 /*
  * After this many consecutive unsuccessful frames,
  * run additional threshold scans.
  */
-#define QR_ROBUST_AFTER_MISSES          3U
+#define QR_RETRY_AFTER_MISSES          3U
 
 
 /*
- * Additional thresholds used by the robust fallback.
+ * Additional thresholds used by the additional-threshold fallback.
  */
-#define QR_ROBUST_THRESHOLD_1           96U
-#define QR_ROBUST_THRESHOLD_2           128U
-#define QR_ROBUST_THRESHOLD_3           192U
+#define QR_RETRY_THRESHOLD_1           96U
+#define QR_RETRY_THRESHOLD_2           128U
+#define QR_RETRY_THRESHOLD_3           192U
 
 
 /* ============================================================================
@@ -815,7 +815,7 @@ int qr_decode_init(void)
 /* ============================================================================
  * Decode one Gray8 frame
  *
- * FAST PATH - every frame:
+ * PRIMARY SCANS - every frame:
  *
  *   1. Original Gray8
  *   2. Binary threshold 160
@@ -836,10 +836,10 @@ int qr_decode_init(void)
  *
  * Therefore the normal pattern becomes:
  *
- *   Frame A : fast
- *   Frame B : fast
- *   Frame C : fast + robust
- *   Frame D : fast
+ *   Frame A : primary scans
+ *   Frame B : primary scans
+ *   Frame C : primary + additional threshold scans
+ *   Frame D : primary scans
  *   ...
  * ========================================================================== */
 
@@ -905,7 +905,7 @@ int qr_decode_frame(
 
 
     /* ========================================================================
-     * FAST SCAN 1
+     * PRIMARY SCAN 1
      *
      * Original Gray8
      * ====================================================================== */
@@ -913,7 +913,7 @@ int qr_decode_frame(
 #if QR_DECODE_VERBOSE
 
     xil_printf(
-        "[QR] FAST 1 : original\r\n"
+        "[QR] PRIMARY 1 : original\r\n"
     );
 
 #endif
@@ -964,7 +964,7 @@ int qr_decode_frame(
         qr_make_raw_threshold(
             min_value,
             max_value,
-            QR_FAST_THRESHOLD_NORM
+            QR_PRIMARY_THRESHOLD_NORM
         );
 
 
@@ -973,7 +973,7 @@ int qr_decode_frame(
     xil_printf(
         "\r\n"
         "[QR] min=%u max=%u "
-        "fast_threshold=%u "
+        "primary_threshold=%u "
         "miss=%u\r\n",
 
         (unsigned int)min_value,
@@ -986,7 +986,7 @@ int qr_decode_frame(
 
 
     /* ========================================================================
-     * FAST SCAN 2
+     * PRIMARY SCAN 2
      *
      * Binary threshold 160
      * ====================================================================== */
@@ -994,7 +994,7 @@ int qr_decode_frame(
 #if QR_DECODE_VERBOSE
 
     xil_printf(
-        "[QR] FAST 2 : threshold 160 "
+        "[QR] PRIMARY 2 : threshold 160 "
         "(raw=%u)\r\n",
         (unsigned int)threshold_160
     );
@@ -1031,7 +1031,7 @@ int qr_decode_frame(
 
 
     /* ========================================================================
-     * Current frame fast path failed
+     * Current frame primary scans failed
      * ====================================================================== */
 
     ++g_qr_consecutive_miss;
@@ -1044,7 +1044,7 @@ int qr_decode_frame(
      * ====================================================================== */
 
     if (g_qr_consecutive_miss >=
-        QR_ROBUST_AFTER_MISSES) {
+        QR_RETRY_AFTER_MISSES) {
 
         /* ====================================================================
          * Prepare additional thresholds
@@ -1054,7 +1054,7 @@ int qr_decode_frame(
             qr_make_raw_threshold(
                 min_value,
                 max_value,
-                QR_ROBUST_THRESHOLD_1
+                QR_RETRY_THRESHOLD_1
             );
 
 
@@ -1062,7 +1062,7 @@ int qr_decode_frame(
             qr_make_raw_threshold(
                 min_value,
                 max_value,
-                QR_ROBUST_THRESHOLD_2
+                QR_RETRY_THRESHOLD_2
             );
 
 
@@ -1070,7 +1070,7 @@ int qr_decode_frame(
             qr_make_raw_threshold(
                 min_value,
                 max_value,
-                QR_ROBUST_THRESHOLD_3
+                QR_RETRY_THRESHOLD_3
             );
 
 

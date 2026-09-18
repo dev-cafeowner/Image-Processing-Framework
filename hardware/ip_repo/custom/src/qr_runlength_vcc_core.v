@@ -6,7 +6,7 @@
  * - Binary Frame BRAM Port B, READ_LATENCY_B=1
  * - Safe ROW_DONE ready-valid
  * - scan_vcc_done ready-valid
- * - RV-56 line-end final-run flush fix included
+ * - Flush the final run at line end
  *
  * Simulation top used with:
  *   tb_qr_runlength_vcc_frontend_p1qr
@@ -86,7 +86,7 @@ module qr_run_length_scan (
     assign run2_value = {4'd0, previous_run2};
     assign run3_value = {4'd0, previous_run3};
     /*
-     * RV-56 Line-End Flush:
+     * Line-end run flush:
      * 같은 색의 마지막 픽셀이 line_end에서 들어오면
      * current_length 레지스터에는 아직 그 픽셀이 반영되지 않았다.
      * 조합 비교용 run4_value만 현재 픽셀 1개를 미리 포함한다.
@@ -186,7 +186,7 @@ module qr_run_length_scan (
                             run_y      <= pixel_y;
 
                             /*
-                             * RV-56:
+                             * Line-end run flush:
                              * 행 마지막 픽셀까지 포함한 다섯 번째 Run으로
                              * 1:1:3:1:1을 검사한다.
                              */

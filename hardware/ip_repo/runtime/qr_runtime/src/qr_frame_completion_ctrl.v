@@ -10,7 +10,7 @@
  *   - Holds FRAME_COMPLETE_PENDING until PS writes FRAME_ACK.
  *   - Generates one-cycle frame_complete only after FRAME_ACK.
  *
- * Exact-Sync frame lifetime
+ * Frame-aligned frame lifetime
  *
  *   coordinated_start
  *          |

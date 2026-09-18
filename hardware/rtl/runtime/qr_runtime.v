@@ -2,18 +2,18 @@
 
 /*
  * ============================================================================
- * Module : qr_runtime_exact
+ * Module : qr_runtime
  *
- * Final packaged-IP wrapper
+ * QR processing and frame-lifecycle IP wrapper
  *
  * Hierarchy
- *   qr_runtime_exact
- *   ├─ qr_runtime_exact_slave_lite_v1_0_S00_AXI : AXI4-Lite transport only
+ *   qr_runtime
+ *   ├─ qr_runtime_slave_lite_v1_0_S00_AXI : AXI4-Lite transport only
  *   ├─ qr_runtime_csr_core                      : CSR semantics
- *   ├─ qr_frame_completion_ctrl                 : Exact-Sync completion/ACK
+ *   ├─ qr_frame_completion_ctrl                 : Frame-aligned completion/ACK
  *   └─ qr_postprocess_runtime_core              : Functional QR runtime core
  *
- * Exact-Sync lifecycle
+ * Frame-aligned lifecycle
  *
  *   coordinated QR start (= ip2_start)
  *             |
@@ -38,16 +38,14 @@
  *                                       frontend_frame_release
  *
  * IMPORTANT
- *   The current project does not yet contain the Gray8 image AXI-stream
- *   generator itself.  Therefore image_tx_done / image_frame_id /
- *   image_overflow_error are explicit wrapper inputs for now.
- *
- *   When the image-stream RTL is added later, these ports can be connected
- *   internally to that block without changing the CSR contract.
+ *   The Gray8 stream is generated outside this IP. The system connects
+ *   image_tx_done / image_frame_id / image_overflow_error to the capture
+ *   and frame-control path. Keep those inputs paired with the result frame
+ *   before acknowledging completion through the CSR interface.
  * ============================================================================
  */
 
-module qr_runtime_exact #(
+module qr_runtime #(
     // -------------------------------------------------------------------------
     // QR runtime parameters
     // -------------------------------------------------------------------------
@@ -173,7 +171,7 @@ module qr_runtime_exact #(
     input  wire                         external_fatal_frame_error,
 
     // =========================================================================
-    // Exact-Sync image-side status
+    // Frame-aligned image-side status
     //
     // These are supplied by the image-stream path for now.
     // =========================================================================
@@ -253,7 +251,7 @@ module qr_runtime_exact #(
     wire [31:0] irq_status_unused;
 
     // =========================================================================
-    // Core / Exact-Sync status
+    // Core / Frame-aligned status
     // =========================================================================
 
     wire feature_start_ready;
@@ -301,7 +299,7 @@ module qr_runtime_exact #(
     // 1) AXI4-Lite transport shell
     // =========================================================================
 
-    qr_runtime_exact_slave_lite_v1_0_S00_AXI #(
+    qr_runtime_slave_lite_v1_0_S00_AXI #(
         .C_S_AXI_DATA_WIDTH (C_S00_AXI_DATA_WIDTH),
         .C_S_AXI_ADDR_WIDTH (C_S00_AXI_ADDR_WIDTH)
     ) u_s00_axi (
@@ -427,7 +425,7 @@ module qr_runtime_exact #(
         .frame_id_seed_write          (frame_id_seed_write),
 
         /*
-         * Exact-Sync release occurs only after image + result + FRAME_ACK.
+         * Frame-aligned release occurs only after image + result + FRAME_ACK.
          */
         .final_processing_done        (frame_complete),
         .frame_sof_accept             (frame_sof_accept),
@@ -495,7 +493,7 @@ module qr_runtime_exact #(
     );
 
     // =========================================================================
-    // 4) Exact-Sync completion controller
+    // 4) Frame-aligned completion controller
     // =========================================================================
 
     qr_frame_completion_ctrl u_frame_completion (

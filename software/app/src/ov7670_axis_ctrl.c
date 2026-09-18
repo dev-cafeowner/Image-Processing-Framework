@@ -97,7 +97,7 @@ u32 ov7670_axis_read_version(void)
  *
  * Important:
  * ARM processor reset does not necessarily reset PL AXI
- * registers, so Stage 4-B explicitly calls this first.
+ * registers, so Image capture test explicitly calls this first.
  * ============================================================ */
 
 void ov7670_axis_capture_disable(void)

@@ -1,47 +1,106 @@
 # SoC-Based General-Purpose Framework for Image Processing
 
-Zybo Z7-20 / Zynq-7020 기반 카메라 영상처리 프레임워크의 **Vivado·Vitis 소스 저장소**입니다. 공통 Camera·Frame·Memory·Control 기반 위에서 전처리와 대상별 Feature IP·PS 처리를 구성합니다. 현재 인식 대상은 QR입니다.
+## 프로젝트 개요
 
-## 저장소 구성
+Zynq SoC의 PL(Programmable Logic)과 PS(Processing System)를 활용한 카메라 기반 영상처리 프레임워크입니다. 카메라 입력, 프레임·메모리 관리, 제어와 표시 기능을 공통 기반으로 두고, 전처리와 대상별 특징 추출·인식 처리를 구성하는 것을 목표로 합니다.
+
+현재는 QR 코드를 첫 번째 인식 대상으로 구현했습니다. OV7670 영상에서 PL이 전처리와 Finder 후보 추출을 담당하고, PS가 후보 검증·Geometry/ROI 처리와 QR 해독을 수행합니다. HDMI 영상 표시는 QR 해독과 분리된 경로로 구성했습니다.
+
+## 개발 배경
+
+제조·물류·유통 분야의 반복 확인 업무에서는 카메라 기반 자동 검수의 활용이 확대되고 있습니다. 인식 대상도 QR·바코드뿐 아니라 문자, 표식, 외관 품질 등으로 다양해지고 있습니다.
+
+대상이 달라질 때마다 카메라 입력부터 전처리, 검출, 제어, 메모리, 인터페이스와 검증 환경까지 전체 시스템을 다시 구성하면 개발·검증 부담이 커집니다. 이 프로젝트는 **공통 영상처리 기반과 대상별 인식 기능을 분리하여 반복 재설계를 줄이는 구조**를 지향합니다.
+
+## 개발 목표
+
+| 목표 | 설계 방향 |
+|---|---|
+| 가변 전처리 | 영상처리 알고리즘을 단계별로 구성하고 필요한 단계만 Enable, 나머지는 Bypass |
+| 대상별 Feature IP | Camera·Memory·Control 기반을 유지하면서 인식 대상에 맞는 특징 추출 기능을 구성·교체 |
+| PL·PS 역할 분담 | 반복적이고 병렬화 가능한 영상 연산은 PL, 분기와 변경이 많은 후보 조합·Geometry·Decode·제어는 PS에서 처리 |
+| 영상 입력·처리·표시 분리 | 프레임 소유권과 버퍼를 관리하여 QR 처리 지연이 영상 표시를 직접 막지 않도록 구성 |
+| 실시간 QR 처리 | VGA 영상과 QR 처리의 30fps 목표를 기준으로 병목을 분석하고 고정 장면에서 성능 검증 |
+| 검증 가능한 공통 기반 | RTL 시뮬레이션, PS 로직 시험, 프레임 정합성 검사와 실기기 계측을 구분하여 평가 |
+
+## 개발 환경
+
+| 항목 | 환경 |
+|---|---|
+| 개발 PC 운영체제 | Windows |
+| FPGA 보드 | Digilent Zybo Z7-20 |
+| SoC | Zynq-7020, `xc7z020clg400-1` |
+| 카메라 | OV7670 |
+| 영상 크기 | VGA 640×480 |
+| 영상 출력 | HDMI |
+| 하드웨어 개발 도구 | AMD Vivado 2024.2 |
+| 소프트웨어 개발 도구 | AMD Vitis 2024.2 |
+| PS 처리 환경 | ARM Cortex-A9, Standalone |
+| 주요 구현 언어 | Verilog/SystemVerilog, C |
+
+## 프로젝트 구성
+
+### 시스템 구조
+
+| 구성 요소 | 주요 역할 |
+|---|---|
+| Camera Input | OV7670 영상 수신, SCCB 설정, 반환 PCLK 수신과 클록 정형, 비동기 전달 |
+| 가변 전처리 | Grayscale·필터·이진화·형태학 처리 등의 단계별 Enable/Bypass |
+| QR Feature IP | 이진 영상의 Finder 후보 추출과 QRP1 결과 패킷 생성 |
+| Frame / Memory / Control | 이중 프레임 버퍼, Gray8 수신 슬롯, DMA와 프레임 소유권·완료 상태 관리 |
+| PS Application | 동일 프레임 후보 검증, 제한된 후보 조합·Geometry/ROI, 실제 영상 기반 Finder 복원과 payload/ECC 검사 |
+| HDMI Display | VDMA와 PL grayscale/HUD를 통한 독립적인 영상 표시 |
+
+PS는 검증된 PL 후보를 우선 사용하고, 필요한 경우 제한된 전체 영상 fallback을 수행합니다. 카메라 프레임과 후보 결과의 식별자를 맞추고, 처리 중인 프레임이 덮어써지지 않도록 소유권을 관리합니다.
+
+현재 기본 전처리는 검증 장면에 맞춘 global threshold 설정입니다. 조명에 따라 전처리를 자동으로 최적 선택하는 기능까지 구현된 것은 아닙니다.
+
+### 소스 구성
 
 | 경로 | 내용 |
 |---|---|
-| `hardware/vivado/system.bd` | 현재 시스템 Block Design |
-| `hardware/constraints/board.xdc` | 보드 핀·타이밍 제약 |
+| `hardware/vivado` | 시스템 Block Design |
+| `hardware/constraints` | 보드 핀·타이밍 제약 |
 | `hardware/rtl` | 카메라·전처리·QR Feature·프레임·표시 RTL |
-| `hardware/ip_repo` | 사용자 IP 소스·패키징 정의·드라이버 |
-| `hardware/tb`, `hardware/vectors` | RTL 테스트벤치·시험 벡터 |
-| `software/app/src` | PS 애플리케이션 C/H·링커·CMake 설정 |
-| `software/tests` | PS 로직 Host 시험 소스·모의 하드웨어 헤더 |
+| `hardware/ip_repo` | 사용자 IP 정의·소스·드라이버 |
+| `hardware/tb`, `hardware/vectors` | RTL 테스트벤치와 시험 벡터 |
+| `software/app/src` | PS 애플리케이션과 빌드 설정 |
+| `software/tests` | PS 로직 시험 소스와 모의 하드웨어 인터페이스 |
 
-PC용 실행·업로드·측정 스크립트, PowerShell 파일, bitstream·ELF·XSA, 생성 프로젝트와 측정 자료는 배포하지 않습니다. IP 구성에 필요한 Tcl, CMake, Makefile은 설계·빌드 정의로 유지합니다. GitHub 릴리즈와 태그를 통한 바이너리 배포도 사용하지 않습니다.
+QR 해독에는 `quirc`를 활용하며, 표시·클록·플랫폼 처리에는 Digilent 및 AMD/Xilinx 코드를 포함합니다. 각 소스의 기존 저작권·라이선스 표기를 유지합니다.
 
-## 개발 환경과 구성
+## 프로젝트 결과
 
-- 보드: Zybo Z7-20, `xc7z020clg400-1`
-- 카메라: OV7670, VGA 640×480
-- 도구: Vivado / Vitis 2024.2
-- PS: `ps7_cortexa9_0`, Standalone/bare-metal
-- PL: 반환 PCLK 수신·클록 정형, 전처리 Enable/Bypass, Finder 후보·QRP1 패킷, 이중 프레임 버퍼, 자율 HDMI 표시
-- PS 경로: 동일 프레임 후보 검증 → 제한된 후보 조합·Geometry/ROI → 영상 기반 Finder 복원·payload/ECC → 필요한 경우 제한된 전체 영상 fallback
+### 고정 장면 QR 처리 성능
 
-Windows와 Linux에서 각각 해당 OS용 AMD 도구를 설치하고 새 프로젝트/BSP를 구성합니다. 생성된 Windows 프로젝트나 PC 실행 파일을 복사하는 방식이 아닙니다. **Linux PC에서의 개발과 보드에서 Linux OS를 실행하는 것은 다릅니다.** 현재 애플리케이션은 보드의 Linux 사용자 프로그램이 아닙니다. Linux 실기기 개발 흐름은 아직 검증하지 않았습니다.
+2026-09-18 조명 복원 후 동일한 카메라·QR 배치에서 측정한 기존 검증 빌드의 결과입니다.
 
-## 프로젝트 구성하기
+| 항목 | 측정 결과 |
+|---|---:|
+| 유효 측정 시간 | 123.950초 |
+| QR 해독 성공 / 분석 횟수 | 3,720 / 3,720 |
+| QR 처리율 | 약 30.012회/s |
+| QR 호출 평균 시간 | 11.817ms |
+| QR 호출 관측 최대 시간 | 12.713ms |
+| Capture skip | 0회 |
+| 프레임 소유권 오류 | 0회 |
 
-1. [Vivado 소스 구성](hardware/vivado/README.md)에 따라 RTL·사용자 IP·외부 Digilent IP와 Block Design을 새 프로젝트에 추가합니다.
-2. 제약을 적용하고 설계 검증·합성·구현·타이밍 확인 후 bitstream과 XSA를 **사용자 개발 환경에서 생성**합니다.
-3. [Vitis 소스 구성](software/README.md)에 따라 그 XSA로 Standalone 플랫폼/BSP와 애플리케이션을 생성합니다.
-4. 애플리케이션을 빌드한 후 Vivado/Vitis의 하드웨어 연결·디버그 기능으로 해당 PL/PS 조합을 보드에 로드합니다.
+해당 고정 장면에서 30fps 수준의 QR 처리 목표를 확인했습니다. 후보 부족을 주입한 별도 비교 시험에서는 fallback 평균 처리 시간이 59.853ms에서 17.085ms로 감소했고, 해당 비교 구간의 capture skip 증가량은 60회에서 0회로 줄었습니다. 이 주입 시험은 일반 영상의 인식률 측정과 구분합니다.
 
-AMD IP와 Digilent IP, BSP는 별도 의존성입니다. 소스 다운로드만으로 보드 실행이 완료되는 패키지는 아닙니다. PL/PS의 레지스터·프레임 형식이 일치하는지 확인해야 합니다.
+### 구현 성과와 검증 범위
 
-## 측정된 기준과 한계
+- 카메라 수신, 전처리, QR 후보 추출, PS 해독, HDMI 표시가 연결된 PL·PS 시스템을 구현했습니다.
+- 검증된 후보를 Geometry/ROI 경로에 연결하고, 초기 ECC 검사와 제한된 fallback으로 PS 처리 부담을 줄였습니다.
+- 이중 프레임 버퍼와 Gray8 소유권 관리로 입력과 QR 처리를 겹치도록 구성했습니다.
+- RTL 시뮬레이션과 PS 로직 시험으로 프레임 정합성, 오류 처리, 후보 검증과 버퍼 소유권을 확인했습니다.
 
-2026-09-18 조명 복원 후 고정 장면에서 기존 검증 빌드는 123.950초 동안 3,720/3,720 QR 해독 성공, 약 30.012회/s를 기록했습니다. QR 호출 평균 11.817ms, 관측 최대 12.713ms이며 해당 실행의 capture skip·소유권 오류는 0회였습니다. 기본 빌드 선택값은 `software/app/src/ApplicationConfig.cmake`에 기록했습니다.
+이 수치는 특정 장면과 당시 검증 빌드에 대한 결과입니다. 소스 명칭을 정리한 뒤의 빌드·시뮬레이션 검증과 실기기 성능 측정은 구분하며, 모든 물리 조건에서 같은 인식률이나 처리 시간을 보장하지 않습니다.
 
-이는 그 장면과 당시 빌드의 결과이며, 이름을 정리한 소스를 새로 빌드한 결과에 자동으로 적용되는 인증은 아닙니다. 모든 거리·각도·조명에서의 인식률, 손상 QR의 긴 실패 지연, 직접 HDMI 캡처 기반 누락·tearing·지연, 두 번째 Feature IP의 재사용성 검증이 남아 있습니다. 웹캠으로 모니터를 촬영한 결과를 직접 HDMI 검증으로 간주하지 않습니다.
+모니터를 촬영한 웹캠의 광학 태그 측정은 판독 가능한 구간에서 약 30fps 입력 및 59.53Hz 표시 주기와 부합했습니다. 직접 HDMI 캡처가 아니므로 전체 구간의 프레임 무누락·무tearing을 입증한 결과는 아닙니다.
 
-## Third-party code
+### 남은 과제
 
-`quirc` (Daniel Beer), Digilent display/dynamic-clock helpers, AMD/Xilinx 플랫폼 코드의 원래 저작권·라이선스 헤더를 유지합니다. 별도의 프로젝트 전체 라이선스를 임의로 부여하지 않습니다.
+- QR 크기·거리·각도·조명 변화와 장시간 동작에 대한 인식률 평가
+- 손상 QR에서 길어지는 실패 처리의 지연 관리
+- 직접 HDMI 캡처를 이용한 프레임 누락·tearing·종단 지연 평가
+- 두 번째 Feature IP와 대응 PS 처리를 통한 공통 기반의 재사용성 검증

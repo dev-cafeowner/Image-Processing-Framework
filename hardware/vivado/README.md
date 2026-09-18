@@ -24,8 +24,8 @@ Before opening `system.bd`, add these module-reference source files:
 - `hardware/rtl/video/video_preview_overlay.v`
 - `hardware/rtl/camera/ov7670_camera_clock.v`
 - `hardware/rtl/camera/ov7670_pclk_rx.v`
-- `hardware/rtl/camera/ov7670_clean_sync_axis.v`
-- `hardware/rtl/camera/ov7670_pclk_clean_clock.v`
+- `hardware/rtl/camera/ov7670_camera_interface.v`
+- `hardware/rtl/camera/ov7670_pclk_conditioner.v`
 
 Enable the XPM CDC, FIFO and MEMORY libraries in the project. Other design RTL is resolved through packaged user IP. Do not add duplicate copies from both `hardware/rtl` and the IP packages indiscriminately.
 

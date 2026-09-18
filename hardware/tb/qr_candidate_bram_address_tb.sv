@@ -11,7 +11,7 @@ module qr_candidate_bram_address_tb;
     wire read_en, read_rst, read_clk, read_we;
     wire [31:0] read_data, unused_din;
     wire [31:0] corrected_write, corrected_read;
-`ifdef QR_TEST_PINGPONG
+`ifdef QR_TEST_FRAME_BANKS
     reg write_bank=0, read_bank=0;
     frame_buffer_address adapter (
         .write_bank(write_bank), .read_bank(read_bank),
@@ -72,7 +72,7 @@ module qr_candidate_bram_address_tb;
     end
     qr_postprocess_axis_qrp1_core post (
         .aclk(clk),.aresetn(resetn),.start(start),.start_ready(post_start_ready),
-`ifdef QR_TEST_PINGPONG
+`ifdef QR_TEST_FRAME_BANKS
         .frame_id(read_bank ? 32'd43 : 32'd42),.image_format(8'd1),
 `else
         .frame_id(32'd1),.image_format(8'd1),
@@ -111,7 +111,7 @@ module qr_candidate_bram_address_tb;
         integer i, cycles, n, cx, cy, expected_x, expected_y;
         begin
             @(negedge clk); resetn=0; start=0; write_en=0; correct_address=fixed_address;
-`ifdef QR_TEST_PINGPONG
+`ifdef QR_TEST_FRAME_BANKS
             correct_address=1; write_bank=fixed_address; read_bank=fixed_address;
 `endif
             repeat(12) @(negedge clk);
@@ -122,7 +122,7 @@ module qr_candidate_bram_address_tb;
             write_en=0; repeat(4) @(negedge clk);
             if(!feature_ready || !post_start_ready) $fatal(1,"start not ready");
             start=1; @(negedge clk); start=0;
-`ifdef QR_TEST_PINGPONG
+`ifdef QR_TEST_FRAME_BANKS
             // Real generated 19200-word BMG: overwrite EVERY word of the other
             // bank while the unchanged feature/QRP1 engine scans this bank.
             write_bank=!read_bank;
@@ -137,7 +137,7 @@ module qr_candidate_bram_address_tb;
             $display("CASE address_fixed=%0d raw_pattern_cycles=%0d hits=%0d rows=%0d stored=%0d labels=%0d accumulated=%0d qualified=%0d candidates=%0d words=%0d errors=%08x packet_errors=%08x cycles=%0d",
                 fixed_address,raw_cycles,hits,rows,stored,labels,accumulated,qualified,candidates,words,errors,packet_errors,cycles);
             if(errors || packet_errors || feature_err) $fatal(1,"pipeline protocol errors");
-`ifdef QR_TEST_PINGPONG
+`ifdef QR_TEST_FRAME_BANKS
             if(candidates!=3) $fatal(1,"bank isolation/candidate count");
 `else
             if(!fixed_address && candidates!=0) $fatal(1,"old address case unexpectedly found candidates");
@@ -147,7 +147,7 @@ module qr_candidate_bram_address_tb;
             cycles=0;
             while(packet_size<words && cycles<200) begin @(negedge clk); cycles=cycles+1; end
             if(packet_size!=words || packet[0]!=32'h51525031 || packet[1]!=32'h01050500 ||
-`ifdef QR_TEST_PINGPONG
+`ifdef QR_TEST_FRAME_BANKS
                packet[2]!=(read_bank ? 43 : 42) || packet[3]!={words,candidates,8'd1} || packet[4]!=0)
 `else
                packet[2]!=1 || packet[3]!={words,candidates,8'd1} || packet[4]!=0)
@@ -166,7 +166,7 @@ module qr_candidate_bram_address_tb;
     endtask
     initial begin
         run_case(0); run_case(1);
-`ifdef QR_TEST_PINGPONG
+`ifdef QR_TEST_FRAME_BANKS
         $display("PASS: actual 19200-word BMG, both banks, simultaneous opposite-bank write, feature/QRP1 frame and centroids");
 `else
         $display("PASS: actual BMG byte-address mismatch reproduced; corrected addresses recover finder candidates");

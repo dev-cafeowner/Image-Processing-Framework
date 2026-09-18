@@ -135,7 +135,7 @@ int ov7670_probe(
  * OV7670 configuration
  * ========================================================================== */
 
-int ov7670_configure_vga_rgb565_baseline(
+int ov7670_configure_vga_rgb565(
     ov7670_t *camera,
     u8 clkrc_value
 );

@@ -8,7 +8,7 @@
  *
  * This module contains no AXI4-Lite register interface.
  * AXI4-Lite transport and CSR semantics are implemented outside this core
- * by qr_runtime_exact.
+ * by qr_runtime.
  *
  * Included here:
  *   - Frame ID control
@@ -17,8 +17,8 @@
  *   - Event AXI4-Stream input
  *   - Sparse CCL / Object Properties / QRP1 packet generation
  *
- * Exact-Sync:
- *   final_processing_done is supplied from the outer exact-sync wrapper.
+ * Frame-aligned:
+ *   final_processing_done is supplied from the outer frame-aligned wrapper.
  *   In the final system it is driven by:
  *
  *      qr_frame_completion_ctrl.frame_complete
@@ -51,7 +51,7 @@ module qr_postprocess_runtime_core #(
     input  wire [31:0]          frame_id_seed,
     input  wire                 frame_id_seed_write,
 
-    // Exact-sync completion from outer wrapper
+    // Frame-aligned completion from outer wrapper
     input  wire                 final_processing_done,
     // Accepted camera SOF from Gray8 tap
     input  wire                 frame_sof_accept,   
@@ -274,7 +274,7 @@ module qr_postprocess_runtime_core #(
 
         .processing_busy        (processing_busy),
 
-        // Outer Exact-Sync wrapper drives this with frame_complete.
+        // Outer Frame-aligned wrapper drives this with frame_complete.
         .final_processing_done  (final_processing_done),
 
         .stat_clear             (error_clear_pulse),

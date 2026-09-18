@@ -1,5 +1,5 @@
 `timescale 1ns/1ps
-module ov7670_clean_sync_axis_tb;
+module ov7670_camera_interface_tb;
     reg aclk=0; always #8 aclk=~aclk;
     reg refclk=0; always #5 refclk=~refclk;
     reg pclk=0; always #20.833333 pclk=~pclk;
@@ -11,7 +11,7 @@ module ov7670_clean_sync_axis_tb;
     wire awr,wr,bv,arr,rv,xc;
     wire [1:0] bp,rp;
     wire [31:0] rd;
-    ov7670_clean_sync_axis dut (.aclk(aclk),.aresetn(resetn),.refclk100(refclk),
+    ov7670_camera_interface dut (.aclk(aclk),.aresetn(resetn),.refclk100(refclk),
         .cam_pclk(pclk),.cam_href(1'b0),.cam_vsync(1'b0),.cam_data(8'd0),.cam_xclk(xc),
         .s_axi_awaddr(aw),.s_axi_awprot(3'd0),.s_axi_awvalid(av),.s_axi_awready(awr),
         .s_axi_wdata(wd),.s_axi_wstrb(ws),.s_axi_wvalid(wv),.s_axi_wready(wr),

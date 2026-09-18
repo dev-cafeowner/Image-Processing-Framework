@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 // Digital phase sweep, not an analog signal-integrity/metastability proof.
-module ov7670_fast_capture_tb;
+module ov7670_capture_tb;
     reg clk=0; always #8 clk=~clk; // 62.5 MHz
     reg resetn=0, pclk=0, href=0, vsync=0;
     reg [7:0] data=0;

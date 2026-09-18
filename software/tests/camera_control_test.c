@@ -29,7 +29,7 @@ int ov7670_write_reg(ov7670_t *c,u8 reg,u8 value) {
 static void good(void) {
     memset(regs,0,sizeof(regs));
     regs[1]=0x021e0280U; regs[3]=0x00020000U; regs[4]=0x43414d33U; regs[12]=1;
-#if QR_CAMERA_CLEAN_PCLK
+#if QR_CAMERA_CONDITIONED_PCLK
     regs[3]=0x00030000U; regs[13]=3U;
 #endif
     delta_frames=15; delta_lost=0; delta_bad=0;
@@ -49,7 +49,7 @@ int main(void) {
     good(); regs[1]--; assert(camera_control_validate_input()==XST_FAILURE);
     good(); regs[1]-=0x1000U; assert(camera_control_validate_input()==XST_FAILURE);
     good(); regs[12]=0; assert(camera_control_validate_input()==XST_FAILURE);
-#if QR_CAMERA_CLEAN_PCLK
+#if QR_CAMERA_CONDITIONED_PCLK
     good(); regs[13]=1; assert(camera_control_validate_input()==XST_FAILURE);
     good(); regs[13]=7; assert(camera_control_validate_input()==XST_FAILURE);
     good(); regs[14]=1; assert(camera_control_validate_input()==XST_FAILURE);
@@ -64,7 +64,7 @@ int main(void) {
     sensor[0x3b]=0x80; assert(camera_control_sensor_check(&camera)==XST_FAILURE); sensor[0x3b]=0;
     sensor[0x3e]=0x08; assert(camera_control_sensor_check(&camera)==XST_FAILURE); sensor[0x3e]=0;
     sensor[0x6b]=0x4a; assert(camera_control_sensor_check(&camera)==XST_FAILURE); sensor[0x6b]=0x0a;
-#if QR_CAMERA_CLEAN_PCLK
+#if QR_CAMERA_CONDITIONED_PCLK
     sensor[0x11]=0x81; assert(camera_control_sensor_check(&camera)==XST_FAILURE); sensor[0x11]=0x80;
 #endif
     read_fail=1; assert(camera_control_sensor_check(&camera)==XST_FAILURE); read_fail=0;

@@ -109,7 +109,7 @@ module qr_runtime_csr_core #(
         enable                 // bit 0
     };
 
-    /* STATUS[12:0] follows the Exact-Sync contract. */
+    /* STATUS[12:0] follows the Frame-aligned contract. */
     wire [31:0] status_value = {
         19'd0,
         frame_complete_pending,
@@ -154,7 +154,7 @@ module qr_runtime_csr_core #(
     always @(posedge aclk or negedge aresetn) begin
         if (!aresetn) begin
             /*
-             * Exact-Sync persistent CONTROL reset value = 0xA1
+             * Frame-aligned persistent CONTROL reset value = 0xA1
              *   bit7 AUTO_START_ENABLE     = 1
              *   bit5 IMAGE_CAPTURE_ENABLE = 1
              *   bit0 ENABLE                = 1

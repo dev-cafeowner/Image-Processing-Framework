@@ -163,7 +163,7 @@ module frame_buffer_controller_tb;
         force q.capture_image_id=32'h12345678;
         frame(0); release q.capture_image_id;
         if(q.errors!=8 || allowed || cr) $fatal(1,"Wrong image ID must fail closed");
-        $display("PASS: pingpong real tap/writer overlap, backpressure, full/drop, delayed ACK, independent AXI, ID wrap, reset");
+        $display("PASS: frame buffer real tap/writer overlap, backpressure, full/drop, delayed ACK, independent AXI, ID wrap, reset");
         $display("PASS: duplicate credit, illegal release, mismatched image ID fail closed");
         $finish;
     end

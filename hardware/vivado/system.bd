@@ -33,7 +33,7 @@
       "rgb2dvi_0": "",
       "axis_broadcaster_0": "",
       "axis_subset_converter_rgb565": "",
-      "qr_runtime_exact_0": "",
+      "qr_runtime_0": "",
       "qr_rgb565_gray8_axis_0": "",
       "xlconstant_640": "",
       "xlconstant_480": "",
@@ -44,7 +44,7 @@
       "ov7670_axis_0": "",
       "binary_address_adapter": "",
       "frame_queue": "",
-      "binary_pingpong": ""
+      "frame_memory_address": ""
     },
     "interface_ports": {
       "DDR": {
@@ -2418,12 +2418,12 @@
           }
         }
       },
-      "qr_runtime_exact_0": {
-        "vlnv": "user.org:user:qr_runtime_exact:1.1",
+      "qr_runtime_0": {
+        "vlnv": "user.org:user:qr_runtime:1.1",
         "ip_revision": "2",
-        "xci_name": "system_qr_runtime_exact_0_0",
-        "xci_path": "ip\\system_qr_runtime_exact_0_0\\system_qr_runtime_exact_0_0.xci",
-        "inst_hier_path": "qr_runtime_exact_0"
+        "xci_name": "system_qr_runtime_0_0",
+        "xci_path": "ip\\system_qr_runtime_0_0\\system_qr_runtime_0_0.xci",
+        "inst_hier_path": "qr_runtime_0"
       },
       "qr_rgb565_gray8_axis_0": {
         "vlnv": "xilinx.com:module_ref:qr_rgb565_gray8_axis_tap:1.0",
@@ -3270,14 +3270,14 @@
         }
       },
       "ov7670_axis_0": {
-        "vlnv": "xilinx.com:module_ref:ov7670_clean_sync_axis:1.0",
+        "vlnv": "xilinx.com:module_ref:ov7670_camera_interface:1.0",
         "ip_revision": "1",
         "xci_name": "system_ov7670_axis_0_0",
         "xci_path": "ip\\system_ov7670_axis_0_0\\system_ov7670_axis_0_0.xci",
         "inst_hier_path": "ov7670_axis_0",
         "reference_info": {
           "ref_type": "hdl",
-          "ref_name": "ov7670_clean_sync_axis",
+          "ref_name": "ov7670_camera_interface",
           "boundary_crc": "0x0"
         },
         "interface_ports": {
@@ -4040,12 +4040,12 @@
           }
         }
       },
-      "binary_pingpong": {
+      "frame_memory_address": {
         "vlnv": "xilinx.com:module_ref:frame_buffer_address:1.0",
         "ip_revision": "1",
-        "xci_name": "system_binary_pingpong_0",
-        "xci_path": "ip\\system_binary_pingpong_0\\system_binary_pingpong_0.xci",
-        "inst_hier_path": "binary_pingpong",
+        "xci_name": "system_frame_memory_address_0",
+        "xci_path": "ip\\system_frame_memory_address_0\\system_frame_memory_address_0.xci",
+        "inst_hier_path": "frame_memory_address",
         "reference_info": {
           "ref_type": "hdl",
           "ref_name": "frame_buffer_address",
@@ -4217,7 +4217,7 @@
       "axi_smc_M02_AXI": {
         "interface_ports": [
           "axi_smc/M02_AXI",
-          "qr_runtime_exact_0/S00_AXI"
+          "qr_runtime_0/S00_AXI"
         ]
       },
       "axi_smc_M03_AXI": {
@@ -4304,9 +4304,9 @@
           "axi_vdma_0/S_AXIS_S2MM"
         ]
       },
-      "binary_pingpong_bram_read": {
+      "frame_memory_address_bram_read": {
         "interface_ports": [
-          "binary_pingpong/bram_read",
+          "frame_memory_address/bram_read",
           "blk_mem_gen_0/BRAM_PORTB"
         ]
       },
@@ -4352,16 +4352,16 @@
           "axi_dma_image/S_AXIS_S2MM"
         ]
       },
-      "qr_runtime_exact_0_M_AXIS_RESULT": {
+      "qr_runtime_0_M_AXIS_RESULT": {
         "interface_ports": [
-          "qr_runtime_exact_0/M_AXIS_RESULT",
+          "qr_runtime_0/M_AXIS_RESULT",
           "axi_dma_0/S_AXIS_S2MM"
         ]
       },
       "qr_vcc_frontend_ip_t_0_M_AXIS_EVENT": {
         "interface_ports": [
           "qr_vcc_frontend_ip_t_0/M_AXIS_EVENT",
-          "qr_runtime_exact_0/S_AXIS_EVENT"
+          "qr_runtime_0/S_AXIS_EVENT"
         ]
       },
       "rgb2dvi_0_TMDS": {
@@ -4487,21 +4487,21 @@
           "binary_address_adapter/write_lanes"
         ]
       },
-      "binary_pingpong_reader_dout": {
+      "frame_memory_address_reader_dout": {
         "ports": [
-          "binary_pingpong/reader_dout",
+          "frame_memory_address/reader_dout",
           "qr_vcc_frontend_ip_t_0/bram_dout"
         ]
       },
-      "binary_pingpong_write_byte": {
+      "frame_memory_address_write_byte": {
         "ports": [
-          "binary_pingpong/write_byte",
+          "frame_memory_address/write_byte",
           "blk_mem_gen_0/addra"
         ]
       },
-      "binary_pingpong_write_lanes": {
+      "frame_memory_address_write_lanes": {
         "ports": [
-          "binary_pingpong/write_lanes",
+          "frame_memory_address/write_lanes",
           "blk_mem_gen_0/wea"
         ]
       },
@@ -4556,7 +4556,7 @@
       "const_zero_dout": {
         "ports": [
           "const_zero/dout",
-          "qr_runtime_exact_0/external_fatal_frame_error"
+          "qr_runtime_0/external_fatal_frame_error"
         ]
       },
       "frame_queue_capture_allowed": {
@@ -4581,49 +4581,49 @@
       "frame_queue_consumer_image_done": {
         "ports": [
           "frame_queue/consumer_image_done",
-          "qr_runtime_exact_0/image_tx_done"
+          "qr_runtime_0/image_tx_done"
         ]
       },
       "frame_queue_consumer_image_id": {
         "ports": [
           "frame_queue/consumer_image_id",
-          "qr_runtime_exact_0/image_frame_id"
+          "qr_runtime_0/image_frame_id"
         ]
       },
       "frame_queue_consumer_margin": {
         "ports": [
           "frame_queue/consumer_margin",
-          "qr_runtime_exact_0/frontend_valid_margin"
+          "qr_runtime_0/frontend_valid_margin"
         ]
       },
       "frame_queue_consumer_mode": {
         "ports": [
           "frame_queue/consumer_mode",
-          "qr_runtime_exact_0/fe_mode_applied"
+          "qr_runtime_0/fe_mode_applied"
         ]
       },
       "frame_queue_consumer_ready": {
         "ports": [
           "frame_queue/consumer_ready",
-          "qr_runtime_exact_0/frontend_frame_ready"
+          "qr_runtime_0/frontend_frame_ready"
         ]
       },
       "frame_queue_consumer_sof": {
         "ports": [
           "frame_queue/consumer_sof",
-          "qr_runtime_exact_0/frame_sof_accept"
+          "qr_runtime_0/frame_sof_accept"
         ]
       },
       "frame_queue_read_bank": {
         "ports": [
           "frame_queue/read_bank",
-          "binary_pingpong/read_bank"
+          "frame_memory_address/read_bank"
         ]
       },
       "frame_queue_write_bank": {
         "ports": [
           "frame_queue/write_bank",
-          "binary_pingpong/write_bank"
+          "frame_memory_address/write_bank"
         ]
       },
       "ov7670_axis_0_cam_xclk": {
@@ -4651,7 +4651,7 @@
           "axis_broadcaster_0/aresetn",
           "axis_subset_converter_rgb565/aresetn",
           "vision_frontend_ip_0/aresetn",
-          "qr_runtime_exact_0/s00_axi_aresetn",
+          "qr_runtime_0/s00_axi_aresetn",
           "qr_rgb565_gray8_axis_0/aresetn",
           "axi_dma_image/axi_resetn",
           "video_preview_overlay_0/aresetn",
@@ -4685,7 +4685,7 @@
           "axis_subset_converter_rgb565/aclk",
           "vision_frontend_ip_0/aclk",
           "qr_vcc_frontend_ip_t_0/aclk",
-          "qr_runtime_exact_0/s00_axi_aclk",
+          "qr_runtime_0/s00_axi_aclk",
           "qr_rgb565_gray8_axis_0/aclk",
           "axi_dma_image/s_axi_lite_aclk",
           "axi_dma_image/m_axi_s2mm_aclk",
@@ -4710,7 +4710,7 @@
       "qr_rgb565_gray8_axis_0_frame_drop_count": {
         "ports": [
           "qr_rgb565_gray8_axis_0/frame_drop_count",
-          "qr_runtime_exact_0/frame_drop_count"
+          "qr_runtime_0/frame_drop_count"
         ]
       },
       "qr_rgb565_gray8_axis_0_frame_sof_accept": {
@@ -4728,7 +4728,7 @@
       "qr_rgb565_gray8_axis_0_image_overflow_error": {
         "ports": [
           "qr_rgb565_gray8_axis_0/image_overflow_error",
-          "qr_runtime_exact_0/image_overflow_error"
+          "qr_runtime_0/image_overflow_error"
         ]
       },
       "qr_rgb565_gray8_axis_0_image_tx_done": {
@@ -4737,161 +4737,161 @@
           "frame_queue/capture_image_done"
         ]
       },
-      "qr_runtime_exact_0_frontend_frame_release": {
+      "qr_runtime_0_frontend_frame_release": {
         "ports": [
-          "qr_runtime_exact_0/frontend_frame_release",
+          "qr_runtime_0/frontend_frame_release",
           "frame_queue/consumer_release"
         ]
       },
-      "qr_runtime_exact_0_frontend_frame_stuck": {
+      "qr_runtime_0_frontend_frame_stuck": {
         "ports": [
-          "qr_runtime_exact_0/frontend_frame_stuck",
+          "qr_runtime_0/frontend_frame_stuck",
           "vision_frontend_ip_0/frame_stuck"
         ]
       },
-      "qr_runtime_exact_0_frontend_stat_clear": {
+      "qr_runtime_0_frontend_stat_clear": {
         "ports": [
-          "qr_runtime_exact_0/frontend_stat_clear",
+          "qr_runtime_0/frontend_stat_clear",
           "qr_rgb565_gray8_axis_0/stat_clear"
         ]
       },
-      "qr_runtime_exact_0_image_capture_enable": {
+      "qr_runtime_0_image_capture_enable": {
         "ports": [
-          "qr_runtime_exact_0/image_capture_enable",
+          "qr_runtime_0/image_capture_enable",
           "frame_queue/capture_enable"
         ]
       },
-      "qr_runtime_exact_0_ip2_error_clear": {
+      "qr_runtime_0_ip2_error_clear": {
         "ports": [
-          "qr_runtime_exact_0/ip2_error_clear",
+          "qr_runtime_0/ip2_error_clear",
           "qr_vcc_frontend_ip_t_0/error_clear"
         ]
       },
-      "qr_runtime_exact_0_ip2_start": {
+      "qr_runtime_0_ip2_start": {
         "ports": [
-          "qr_runtime_exact_0/ip2_start",
+          "qr_runtime_0/ip2_start",
           "qr_vcc_frontend_ip_t_0/start"
         ]
       },
-      "qr_runtime_exact_0_irq": {
+      "qr_runtime_0_irq": {
         "ports": [
-          "qr_runtime_exact_0/irq",
+          "qr_runtime_0/irq",
           "xlconcat_0/In0"
         ]
       },
-      "qr_runtime_exact_0_next_frame_id": {
+      "qr_runtime_0_next_frame_id": {
         "ports": [
-          "qr_runtime_exact_0/next_frame_id"
+          "qr_runtime_0/next_frame_id"
         ]
       },
       "qr_vcc_frontend_ip_t_0_arbiter_protocol_error": {
         "ports": [
           "qr_vcc_frontend_ip_t_0/arbiter_protocol_error",
-          "qr_runtime_exact_0/ip2_arbiter_protocol_error"
+          "qr_runtime_0/ip2_arbiter_protocol_error"
         ]
       },
       "qr_vcc_frontend_ip_t_0_bram_addr": {
         "ports": [
           "qr_vcc_frontend_ip_t_0/bram_addr",
           "binary_address_adapter/read_word",
-          "binary_pingpong/read_word"
+          "frame_memory_address/read_word"
         ]
       },
       "qr_vcc_frontend_ip_t_0_bram_clk": {
         "ports": [
           "qr_vcc_frontend_ip_t_0/bram_clk",
-          "binary_pingpong/reader_clk"
+          "frame_memory_address/reader_clk"
         ]
       },
       "qr_vcc_frontend_ip_t_0_bram_din": {
         "ports": [
           "qr_vcc_frontend_ip_t_0/bram_din",
-          "binary_pingpong/reader_din"
+          "frame_memory_address/reader_din"
         ]
       },
       "qr_vcc_frontend_ip_t_0_bram_en": {
         "ports": [
           "qr_vcc_frontend_ip_t_0/bram_en",
-          "binary_pingpong/reader_enable"
+          "frame_memory_address/reader_enable"
         ]
       },
       "qr_vcc_frontend_ip_t_0_bram_rst": {
         "ports": [
           "qr_vcc_frontend_ip_t_0/bram_rst",
-          "binary_pingpong/reader_reset"
+          "frame_memory_address/reader_reset"
         ]
       },
       "qr_vcc_frontend_ip_t_0_bram_we": {
         "ports": [
           "qr_vcc_frontend_ip_t_0/bram_we",
           "binary_address_adapter/read_write_enable",
-          "binary_pingpong/read_write_enable"
+          "frame_memory_address/read_write_enable"
         ]
       },
       "qr_vcc_frontend_ip_t_0_candidate_drop_error": {
         "ports": [
           "qr_vcc_frontend_ip_t_0/candidate_drop_error",
-          "qr_runtime_exact_0/ip2_candidate_drop_error"
+          "qr_runtime_0/ip2_candidate_drop_error"
         ]
       },
       "qr_vcc_frontend_ip_t_0_candidate_overrun_error": {
         "ports": [
           "qr_vcc_frontend_ip_t_0/candidate_overrun_error",
-          "qr_runtime_exact_0/ip2_candidate_overrun_error"
+          "qr_runtime_0/ip2_candidate_overrun_error"
         ]
       },
       "qr_vcc_frontend_ip_t_0_coordinate_error": {
         "ports": [
           "qr_vcc_frontend_ip_t_0/coordinate_error",
-          "qr_runtime_exact_0/ip2_coordinate_error"
+          "qr_runtime_0/ip2_coordinate_error"
         ]
       },
       "qr_vcc_frontend_ip_t_0_event_protocol_error": {
         "ports": [
           "qr_vcc_frontend_ip_t_0/event_protocol_error",
-          "qr_runtime_exact_0/ip2_event_protocol_error"
+          "qr_runtime_0/ip2_event_protocol_error"
         ]
       },
       "qr_vcc_frontend_ip_t_0_event_row_order_error": {
         "ports": [
           "qr_vcc_frontend_ip_t_0/event_row_order_error",
-          "qr_runtime_exact_0/ip2_event_row_order_error"
+          "qr_runtime_0/ip2_event_row_order_error"
         ]
       },
       "qr_vcc_frontend_ip_t_0_event_stability_error": {
         "ports": [
           "qr_vcc_frontend_ip_t_0/event_stability_error",
-          "qr_runtime_exact_0/ip2_event_stability_error"
+          "qr_runtime_0/ip2_event_stability_error"
         ]
       },
       "qr_vcc_frontend_ip_t_0_processing_busy": {
         "ports": [
           "qr_vcc_frontend_ip_t_0/processing_busy",
-          "qr_runtime_exact_0/ip2_processing_busy"
+          "qr_runtime_0/ip2_processing_busy"
         ]
       },
       "qr_vcc_frontend_ip_t_0_processing_done": {
         "ports": [
           "qr_vcc_frontend_ip_t_0/processing_done",
-          "qr_runtime_exact_0/ip2_processing_done"
+          "qr_runtime_0/ip2_processing_done"
         ]
       },
       "qr_vcc_frontend_ip_t_0_row_done_overrun_error": {
         "ports": [
           "qr_vcc_frontend_ip_t_0/row_done_overrun_error",
-          "qr_runtime_exact_0/ip2_row_done_overrun_error"
+          "qr_runtime_0/ip2_row_done_overrun_error"
         ]
       },
       "qr_vcc_frontend_ip_t_0_scan_vcc_error": {
         "ports": [
           "qr_vcc_frontend_ip_t_0/scan_vcc_error",
-          "qr_runtime_exact_0/ip2_scan_vcc_error"
+          "qr_runtime_0/ip2_scan_vcc_error"
         ]
       },
       "qr_vcc_frontend_ip_t_0_start_ready": {
         "ports": [
           "qr_vcc_frontend_ip_t_0/start_ready",
-          "qr_runtime_exact_0/ip2_start_ready"
+          "qr_runtime_0/ip2_start_ready"
         ]
       },
       "v_axi4s_vid_out_0_vtg_ce": {
@@ -4924,7 +4924,7 @@
           "vision_frontend_ip_0/wr_addr",
           "xlconcat_bram_addra/In0",
           "binary_address_adapter/write_word",
-          "binary_pingpong/write_word"
+          "frame_memory_address/write_word"
         ]
       },
       "vision_frontend_ip_0_wr_data": {
@@ -4938,7 +4938,7 @@
           "vision_frontend_ip_0/wr_en",
           "blk_mem_gen_0/ena",
           "binary_address_adapter/write_enable",
-          "binary_pingpong/write_enable"
+          "frame_memory_address/write_enable"
         ]
       },
       "xlconcat_0_dout": {
@@ -5002,8 +5002,8 @@
                 "offset": "0x40010000",
                 "range": "64K"
               },
-              "SEG_qr_runtime_exact_0_S00_AXI_reg": {
-                "address_block": "/qr_runtime_exact_0/S00_AXI/S00_AXI_reg",
+              "SEG_qr_runtime_0_S00_AXI_reg": {
+                "address_block": "/qr_runtime_0/S00_AXI/S00_AXI_reg",
                 "offset": "0x43C20000",
                 "range": "64K",
                 "offset_base_param": "C_S00_AXI_BASEADDR",

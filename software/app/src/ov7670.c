@@ -1222,7 +1222,7 @@ static const ov7670_reg_pair_t ov7670_rgb565_regs[] =
  * Full VGA RGB565 configuration
  * ========================================================================== */
 
-int ov7670_configure_vga_rgb565_baseline(
+int ov7670_configure_vga_rgb565(
     ov7670_t *camera,
     u8 clkrc
 )
@@ -1673,7 +1673,7 @@ int ov7670_prepare_vga_rgb565(
          * ------------------------------------------------------------------ */
 
         status =
-            ov7670_configure_vga_rgb565_baseline(
+            ov7670_configure_vga_rgb565(
                 camera,
                 clkrc
             );

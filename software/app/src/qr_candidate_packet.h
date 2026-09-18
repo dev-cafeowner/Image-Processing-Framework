@@ -17,7 +17,7 @@ enum {
     QR_PACKET_RECORD=6, QR_PACKET_COORDINATE=7, QR_PACKET_SUM=8
 };
 
-/* Strict current QRP1 ABI, Gray8 exact-sync only. A candidate's box encloses
+/* Strict current QRP1 ABI, Gray8 frame-aligned only. A candidate's box encloses
  * sparse finder-center HITs; it is NOT the QR symbol's bounding box or ROI.
  * On failure, count stays zero: callers must never consume partial records. */
 static inline int qr_candidate_packet_parse(const uint32_t *w, size_t words,

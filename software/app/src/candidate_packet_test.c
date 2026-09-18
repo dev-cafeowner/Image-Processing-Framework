@@ -42,7 +42,7 @@ extern void outbyte(char c);
 
 
 /* ============================================================================
- * Stage 5-A constants
+ * Candidate packet test constants
  * ========================================================================== */
 
 #define CANDIDATE_TEST_TIMEOUT_MS                  5000U
@@ -539,7 +539,7 @@ static void print_candidate(
 
 
 /* ============================================================================
- * Stage 5-A
+ * Candidate packet test
  * ========================================================================== */
 
 int candidate_packet_test_run(void)
@@ -645,7 +645,7 @@ int candidate_packet_test_run(void)
     xil_printf(
         "\r\n"
         "====================================\r\n"
-        " Stage 5-A Exact-Sync QRP1 Test\r\n"
+        " Candidate packet test Frame-aligned QRP1 Test\r\n"
         "====================================\r\n"
     );
 
@@ -1661,7 +1661,7 @@ int candidate_packet_test_run(void)
 
 
     /* ========================================================================
-     * Exact Sync
+     * Frame alignment
      * ====================================================================== */
 
     image_frame_id =
@@ -1673,7 +1673,7 @@ int candidate_packet_test_run(void)
 
     xil_printf(
         "\r\n"
-        "[EXACT SYNC]\r\n"
+        "[FRAME ALIGNMENT]\r\n"
     );
 
 
@@ -1702,14 +1702,14 @@ int candidate_packet_test_run(void)
          image_frame_id)) {
 
         xil_printf(
-            "[WARN] Exact-Sync Frame ID mismatch "
+            "[WARN] Frame-aligned Frame ID mismatch "
             "(ignored for PS full-frame decode test)\r\n"
         );
     }
     else {
 
         xil_printf(
-            "[PASS] Exact-Sync Frame ID match\r\n"
+            "[PASS] Frame-aligned Frame ID match\r\n"
         );
     }
 
@@ -1895,7 +1895,7 @@ int candidate_packet_test_run(void)
 
 
     xil_printf(
-        "Sending Exact-Sync Gray8 : %u bytes\r\n",
+        "Sending Frame-aligned Gray8 : %u bytes\r\n",
         (unsigned int)QR_HW_IMAGE_BYTES
     );
 
@@ -1904,7 +1904,7 @@ int candidate_packet_test_run(void)
 
 
     xil_printf(
-        "[PASS] Exact-Sync Gray8 UART dump complete\r\n"
+        "[PASS] Frame-aligned Gray8 UART dump complete\r\n"
     );
 
 
@@ -1981,7 +1981,7 @@ int candidate_packet_test_run(void)
 
 
     xil_printf(
-        "[PASS] Stage 5-A complete\r\n"
+        "[PASS] Candidate packet test complete\r\n"
     );
 
 

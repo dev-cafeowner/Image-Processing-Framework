@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 // CAM3: ABI-compatible first four registers; extra read-only source metrics.
-module ov7670_clean_sync_axis (
+module ov7670_camera_interface (
     (* X_INTERFACE_PARAMETER="XIL_INTERFACENAME aclk, ASSOCIATED_BUSIF s_axi:m_axis, ASSOCIATED_RESET aresetn, FREQ_HZ 62500000" *)
     (* X_INTERFACE_INFO="xilinx.com:signal:clock:1.0 aclk CLK" *) input wire aclk,
     (* X_INTERFACE_PARAMETER="XIL_INTERFACENAME aresetn, POLARITY ACTIVE_LOW" *)
@@ -32,7 +32,7 @@ module ov7670_clean_sync_axis (
     wire rx_locked, rx_locked_a, rx_reset;
     reg rx_was_locked, rx_loss_sticky;
     reg [31:0] rx_lock_losses;
-    ov7670_pclk_clean_clock return_clock (.pclk_in(cam_pclk), .enable(aresetn && rx_enable), .pclk_out(pclk), .locked(rx_locked));
+    ov7670_pclk_conditioner return_clock (.pclk_in(cam_pclk), .enable(aresetn && rx_enable), .pclk_out(pclk), .locked(rx_locked));
     xpm_cdc_single #(.DEST_SYNC_FF(3),.SRC_INPUT_REG(0),.INIT_SYNC_FF(1))
         rx_lock_sync (.src_clk(pclk),.src_in(rx_locked),.dest_clk(aclk),.dest_out(rx_locked_a));
     xpm_cdc_async_rst #(.DEST_SYNC_FF(4),.INIT_SYNC_FF(0),.RST_ACTIVE_HIGH(1))

@@ -160,7 +160,7 @@ module ov7670_capture #(
     // pclk gets three stages because the third is the edge detector's history
     // bit. href, vsync and the data bus get two.
     // Keep the two-stage input samplers together in implementation.
-    // qr_perf uses aclk=62.5 MHz, XCLK_DIV=2 and CLKRC[7]=0:
+    // With aclk=62.5 MHz, XCLK_DIV=2 and CLKRC[7]=0:
     // PCLK <=15.625 MHz, not the original 125/12.5 MHz example above.
     (* ASYNC_REG = "TRUE", SHREG_EXTRACT = "NO" *) reg [2:0] pclk_s;
     (* ASYNC_REG = "TRUE", SHREG_EXTRACT = "NO" *) reg [1:0] href_s;

@@ -1,10 +1,10 @@
 `timescale 1ns/1ps
-// Experimental VGA30 returned-clock conditioner. Only enable after the sensor
+// Returned-clock conditioner. Only enable after the sensor
 // is configured for continuous 24MHz PCLK. 24 * 32 = 768MHz VCO; output /32.
 // LOW bandwidth filters phase jitter but is not an electrical wiring repair.
 // The 90-degree offset samples later in the byte eye; STA and board tests are
 // required. No performance claim follows from the MMCM locking alone.
-module ov7670_pclk_clean_clock (
+module ov7670_pclk_conditioner (
     input wire pclk_in, enable,
     output wire pclk_out, locked
 );

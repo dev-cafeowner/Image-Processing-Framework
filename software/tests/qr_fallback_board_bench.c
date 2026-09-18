@@ -17,7 +17,7 @@ int main(void)
     init_platform();
     Xil_ICacheEnable(); Xil_DCacheEnable();
     sleep(2);
-    printf("[BENCH BEGIN] synthetic=1 live_pipeline=0 fast=%d repeats=30\r\n",
+    printf("[BENCH BEGIN] synthetic=1 live_pipeline=0 early_decode=%d repeats=30\r\n",
            QR_FALLBACK_EARLY_DECODE);
     assert(qr_regression_main()==0);
     qr_decode_deinit();
@@ -47,7 +47,7 @@ int main(void)
             assert(pr->fallback_attempts==1 && !pr->guided_attempts);
             if(fixture<5) assert(status==QR_DECODE_OK && !strcmp(result,payload));
             else assert(status!=QR_DECODE_OK && result[0]==0 && box.corner[0].x==0);
-            if(rep>=0) printf("[BENCH] fast=%d fixture=%d rep=%d status=%d us=%u fallback_us=%lu early=%lu refined=%lu\r\n",
+            if(rep>=0) printf("[BENCH] early_decode=%d fixture=%d rep=%d status=%d us=%u fallback_us=%lu early=%lu refined=%lu\r\n",
                 QR_FALLBACK_EARLY_DECODE,fixture,rep,status,elapsed,
                 pr->fallback_us,pr->fallback_early_pass,pr->fallback_refine_attempts);
         }

@@ -188,7 +188,7 @@ set_property -dict { \
 create_generated_clock \
     -name cam_xclk_out \
     -source [get_pins {
-        qr_ip1_bd_i/ov7670_axis_0/inst/clock_source/forward_clock/C
+        system_i/ov7670_axis_0/inst/clock_source/forward_clock/C
     }] \
     -divide_by 1 \
     [get_ports {cam_xclk_0}]

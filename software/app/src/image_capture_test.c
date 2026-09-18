@@ -83,7 +83,7 @@ static void print_gray_stats(void)
 
 
 /* ============================================================
- * Stage 4-B
+ * Image capture test
  *
  * OV7670
  *   -> RGB565 AXI4-Stream
@@ -125,7 +125,7 @@ int image_capture_test_run(void)
 
     xil_printf("\r\n");
     xil_printf("====================================\r\n");
-    xil_printf(" Stage 4-B Camera -> Gray8 DMA Test\r\n");
+    xil_printf(" Image capture test Camera -> Gray8 DMA Test\r\n");
     xil_printf("====================================\r\n");
 
 
@@ -240,7 +240,7 @@ int image_capture_test_run(void)
 
 
 #ifndef QR_HW_VDMA_BASEADDR
-#error "QR_HW_VDMA_BASEADDR is required for Stage 4-B broadcaster bring-up."
+#error "QR_HW_VDMA_BASEADDR is required for Image capture test broadcaster bring-up."
 #endif
 
 
@@ -421,7 +421,7 @@ int image_capture_test_run(void)
     }
 
 
-    status = ov7670_configure_vga_rgb565_baseline(
+    status = ov7670_configure_vga_rgb565(
         &camera,
         (u8)QR_HW_OV7670_CLKRC_BRINGUP
     );
@@ -771,7 +771,7 @@ int image_capture_test_run(void)
 
 
     xil_printf(
-        "[PASS] Stage 4-B complete\r\n"
+        "[PASS] Image capture test complete\r\n"
     );
 
 

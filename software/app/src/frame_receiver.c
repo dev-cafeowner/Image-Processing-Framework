@@ -70,7 +70,7 @@ void frame_receiver_service(void)
     if(qr_dma_s2mm_arm(rx,(UINTPTR)(images+slot*image_bytes),image_bytes)!=XST_SUCCESS) {
         fail("rearm"); goto done;
     }
-#ifndef QR_PINGPONG_HOST_TEST
+#ifndef QR_FRAME_RECEIVER_HOST_TEST
     __asm__ volatile("dsb sy" ::: "memory");
 #endif
     CMD(1U); // No subsequent physical SOF is allowed without this DMA credit.

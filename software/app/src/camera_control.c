@@ -19,7 +19,7 @@ static u32 prev_ticks, prev_frames, prev_pixels;
 int camera_control_check(void)
 {
     const u32 expected_version =
-#if QR_CAMERA_CLEAN_PCLK
+#if QR_CAMERA_CONDITIONED_PCLK
         0x00030000U;
 #else
         0x00020000U;
@@ -54,7 +54,7 @@ int camera_control_sensor_check(ov7670_t *camera)
     if (ov7670_write_reg(camera, 0x09U, (com2 & 0xfcU) | QR_CAMERA_DRIVE) ||
         ov7670_read_reg(camera, 0x09U, &com2) ||
         (com2 & 3U) != QR_CAMERA_DRIVE) return XST_FAILURE;
-#if QR_CAMERA_CLEAN_PCLK
+#if QR_CAMERA_CONDITIONED_PCLK
     /* Arm only once the returned PCLK is in the validated 24MHz profile.
      * Main camera-clock lock is independent and was checked before SCCB. */
     {
@@ -78,7 +78,7 @@ int camera_control_validate_input(void)
     usleep(500000U);
     frames=rd(0x18U)-frames; lost=rd(0x20U)-lost; bad=rd(0x24U)-bad;
     status=rd(4U);
-#if QR_CAMERA_CLEAN_PCLK
+#if QR_CAMERA_CONDITIONED_PCLK
     runtime_log_printf("[RXCLK] status=%08lx losses=%lu\r\n",rd(0x34U),rd(0x38U));
     if (rd(0x34U) != 3U || rd(0x38U) != 0U) {
         runtime_log_printf("[FAIL] Returned PCLK not stably locked; camera stream stays disabled\r\n");
@@ -102,7 +102,7 @@ void camera_control_report(void)
         qr_perf_us(last,now),ticks-prev_ticks,frames-prev_frames,pixels-prev_pixels,frames,
         rd(0x20U),rd(0x24U),rd(8U)>>16,rd(4U),rd(0x28U),rd(0x2cU),rd(0x30U)&1U);
     last=now; prev_ticks=ticks; prev_frames=frames; prev_pixels=pixels;
-#if QR_CAMERA_CLEAN_PCLK
+#if QR_CAMERA_CONDITIONED_PCLK
     runtime_log_printf("[RXCLK] status=%08lx losses=%lu\r\n",rd(0x34U),rd(0x38U));
 #endif
 }
